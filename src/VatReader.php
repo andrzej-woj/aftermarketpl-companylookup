@@ -1,8 +1,8 @@
 <?php 
 
-namespace CompanyLookup;
+namespace Aftermarketpl\CompanyLookup;
 
-use CompanyLookup\Exceptions\VatReaderException;
+use Aftermarketpl\CompanyLookup\Exceptions\VatReaderException;
 use SoapClient;
 
 class VatReader

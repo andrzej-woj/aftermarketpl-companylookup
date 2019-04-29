@@ -1,8 +1,8 @@
 <?php
 
-namespace CompanyLookup\Helpers;
+namespace Aftermarketpl\CompanyLookup\Helpers;
 
-use CompanyLookup\Exceptions\AddressException;
+use Aftermarketpl\CompanyLookup\Exceptions\AddressException;
 
 class Validator {
 

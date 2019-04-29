@@ -1,6 +1,6 @@
 <?php
 
-namespace CompanyLookup\Exceptions;
+namespace Aftermarketpl\CompanyLookup\Exceptions;
 
 use Exception;
 

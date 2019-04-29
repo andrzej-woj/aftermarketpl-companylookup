@@ -1,8 +1,8 @@
 <?php
 
-namespace CompanyLookup\Validators;
+namespace Aftermarketpl\CompanyLookup\Validators;
 
-use CompanyLookup\Exceptions\ValidatorException;
+use Aftermarketpl\CompanyLookup\Exceptions\ValidatorException;
 
 class PL 
 {

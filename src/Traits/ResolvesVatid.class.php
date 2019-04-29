@@ -1,5 +1,6 @@
 <?php
-namespace CompanyLookup\Traits;
+
+namespace Aftermarketpl\CompanyLookup\Traits;
 
 trait ResolvesVatid {
 

@@ -1,8 +1,8 @@
 <?php 
 
-namespace CompanyLookup;
+namespace Aftermarketpl\CompanyLookup;
 
-use CompanyLookup\Exceptions\ViesException;
+use Aftermarketpl\CompanyLookup\Exceptions\ViesException;
 
 class ViesReader
 {
