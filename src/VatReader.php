@@ -2,15 +2,14 @@
 
 namespace Aftermarketpl\CompanyLookup;
 
-use Aftermarketpl\CompanyLookup\Exceptions\VatReaderException;
+use Exceptions\VatReaderException;
 use SoapClient;
 
 class VatReader
 {
     static public $ws_url = 'https://sprawdz-status-vat.mf.gov.pl/?wsdl';
 
-    use Traits\ResolvesVatid;
-    use Traits\ValidatesVatid;
+    use Traits\ResolvesVatid, Traits\ValidatesVatid;
 
 
     /**

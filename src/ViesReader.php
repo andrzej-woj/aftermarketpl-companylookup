@@ -2,8 +2,6 @@
 
 namespace Aftermarketpl\CompanyLookup;
 
-use Aftermarketpl\CompanyLookup\Exceptions\ViesException;
-
 class ViesReader
 {
     use Traits\ResolvesVatid;
