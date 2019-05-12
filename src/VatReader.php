@@ -2,68 +2,80 @@
 
 namespace Aftermarketpl\CompanyLookup;
 
-use Exceptions\VatReaderException;
+use Aftermarketpl\CompanyLookup\Exceptions\VatReaderException;
 use SoapClient;
 
 class VatReader
 {
-    static public $ws_url = 'https://sprawdz-status-vat.mf.gov.pl/?wsdl';
-
     use Traits\ResolvesVatid, Traits\ValidatesVatid;
 
+    public $ws_url = 'https://sprawdz-status-vat.mf.gov.pl/?wsdl';
+    private $options = [];
 
     /**
+     * 
      */
-    public static function lookup(string $vatid)
+    public function __construct($options = [])
     {
-        self::validateVatid($vatid);
-        $vatid = mb_ereg_replace("[^0-9]", "" , $vatid);
-
-        try {
-            $api = new SoapClient(self::$ws_url);
-            $response = $api->sprawdzNIP($vatid);
-        } catch(\Throwable $e) {
-            print_r($e->getMessage());
-            throw new VatReaderException('Checking status currently not available');
-        }
-
-        return self::handleResponse($response);
+        $this->options = $options;
     }
 
     /**
      */
-    public static function lookupDate(string $vatid, string $date)
+    public function lookup(string $vatid)
     {
-        self::validateVatid($vatid);
+        $this->validateVatid($vatid);
+        $vatid = mb_ereg_replace("[^0-9]", "" , $vatid);
+
+        try {
+            $api = new SoapClient($this->ws_url);
+            $response = $api->sprawdzNIP($vatid);
+        } catch(\Throwable $e) {
+            throw new VatReaderException('Checking status currently not available');
+        }
+
+        return $this->handleResponse($response, ['vatid' => $vatid, 'date' => strftime("%Y-%m-%d", mktime())]);
+    }
+
+    /**
+     */
+    public function lookupDate(string $vatid, string $date)
+    {
+        $this->validateVatid($vatid);
         $vatid = mb_ereg_replace("[^0-9]", "" , $vatid);
         try {
-            $api = new SoapClient(self::$ws_url);
+            $api = new SoapClient($this->ws_url);
             $response = $api->sprawdzNIPNaDzien($vatid, $date);
         } catch(\Throwable $e) {
             throw new VatReaderException('Checking status currently not available');
         }
 
-        return self::handleResponse($response);
+        return $this->handleResponse($response, ['vatid' => $vatid, 'date' => $date]);
     }
 
     /**
      * 
      */
-    public static function handleResponse($response) 
+    public function handleResponse($response, $request = []) 
     {
         if(!isset($response->Kod)) 
         {
-            return ['result' => 'unknown'];
+            return ['result' => 'unknown', 'vatid' => $request['vatid']];
+        }
+
+        if($response->Kod == 'X')  // Usługa nieaktywna, brak dostepu API
+        {
+            return ['result' => 'unknown', 'vatid' => $request['vatid']];
         }
 
         if($response->Kod == 'C') 
         {
-            return ['result' => 'valid'];
+            return ['result' => 'valid', 'vatid' => $request['vatid']];
         }
 
         if($response->Kod != "C") 
         {
-            return ['result' => 'invalid'];
+            return ['result' => 'invalid', 'vatid' => $request['vatid']];
         }
     }
 }

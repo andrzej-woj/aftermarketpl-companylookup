@@ -3,8 +3,8 @@
 namespace Aftermarketpl\CompanyLookup\Exceptions;
 
 use Exception;
-
-class AddressException extends Exception 
+use Throwable;
+class AddressException extends Exception
 {
 
 }

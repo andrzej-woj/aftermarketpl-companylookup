@@ -2,18 +2,30 @@
 
 namespace Aftermarketpl\CompanyLookup;
 
+use Throwable;
+use Aftermarketpl\CompanyLookup\Exceptions\ViesReaderException;
+
 class ViesReader
 {
     use Traits\ResolvesVatid;
     use Traits\ValidatesVatid;
 
+    private $options = [];
+    /**
+     * 
+     */
+    public function __construct($options = [])
+    {
+        $this->options = $options;
+    }
+
     /**
      */
-    public static function lookup(string $vatid)
+    public function lookup(string $vatid)
     {
-        self::validateVatid($vatid);
+        $this->validateVatid($vatid);
 
-        list($country, $number) = self::resolveVatid($vatid);
+        list($country, $number) = $this->resolveVatid($vatid);
 
         $client = new \GuzzleHttp\Client();        
         try
@@ -22,7 +34,7 @@ class ViesReader
         }
         catch(Throwable $e)
         {
-            return ["valid" => "unknown"];
+            throw new ViesReaderException('Checking status currently not available');
         }
 
         if(preg_match("/service unavailable/", $response->getBody()))
@@ -39,19 +51,33 @@ class ViesReader
             $name = trim($a[2][3]);
             $addr = str_replace("<br />", "\n", trim($a[2][4]));
 
-            list($address, $zip, $city) = Helpers\Address::extract($country, $addr);
+            try {
+                list($address, $zip, $city) = Helpers\Address::extract($country, $addr);
+            } catch(Throwable $e) {
+                $address = $addr;
+                $zip = '';
+                $city = '';
+            }
+            
+            $address = trim(str_replace("---", "", $address));
+
             return [
                     'result' => 'valid',
-                    'nip' => $vatid,
+                    'country' => $country,
+                    'vatid' => $vatid,
                     'company' => $name,
                     'address' => $address,
                     'zip' => $zip,
-                    'city' => $city
+                    'city' => $city,
             ];
         }
         else
         {
-            return ["valid" => "unknown"];
+            return [
+                "valid" => "unknown",
+                "country" => $country,
+                "vatid" => $vatid
+            ];
         }
     }
 }

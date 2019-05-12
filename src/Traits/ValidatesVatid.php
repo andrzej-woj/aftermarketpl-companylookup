@@ -2,12 +2,14 @@
 
 namespace Aftermarketpl\CompanyLookup\Traits;
 
+use Aftermarketpl\CompanyLookup\Exceptions\ValidatorException;
+
 trait ValidatesVatid {
 
     public static function validateVatid($vatid) 
     {
         if(!is_string($vatid)) 
-            throw new ViesException("Incorrect vatid");
+            throw new ValidatorException("Incorrect vatid");
         
         $country = strtoupper(substr($vatid, 0, 2));
 
