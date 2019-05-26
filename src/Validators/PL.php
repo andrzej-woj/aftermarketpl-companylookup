@@ -35,5 +35,7 @@ class PL
 
         if ($intControlNr != $value[9])
             throw new ValidatorException("Incorrect self sign value");
+
+        return $country.$value;
     }
 }

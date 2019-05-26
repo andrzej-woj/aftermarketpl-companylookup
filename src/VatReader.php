@@ -24,8 +24,7 @@ class VatReader
      */
     public function lookup(string $vatid)
     {
-        $this->validateVatid($vatid);
-        $vatid = mb_ereg_replace("[^0-9]", "" , $vatid);
+        $vatid = $this->validateVatid($vatid, 'PL');
 
         try {
             $api = new SoapClient($this->ws_url);
@@ -41,8 +40,8 @@ class VatReader
      */
     public function lookupDate(string $vatid, string $date)
     {
-        $this->validateVatid($vatid);
-        $vatid = mb_ereg_replace("[^0-9]", "" , $vatid);
+        $vatid = $this->validateVatid($vatid, 'PL');
+
         try {
             $api = new SoapClient($this->ws_url);
             $response = $api->sprawdzNIPNaDzien($vatid, $date);
@@ -60,22 +59,22 @@ class VatReader
     {
         if(!isset($response->Kod)) 
         {
-            return ['result' => 'unknown', 'vatid' => $request['vatid']];
+            throw new VatReaderException('Unknown response');
         }
 
         if($response->Kod == 'X')  // Usługa nieaktywna, brak dostepu API
         {
-            return ['result' => 'unknown', 'vatid' => $request['vatid']];
+            throw new VatReaderException('Checking status currently not available');
         }
 
         if($response->Kod == 'C') 
         {
-            return ['result' => 'valid', 'vatid' => $request['vatid']];
+            return ['result' => 'valid', 'vatid' => $request['vatid'], 'date' => $request['date']];
         }
 
         if($response->Kod != "C") 
         {
-            return ['result' => 'invalid', 'vatid' => $request['vatid']];
+            return ['result' => 'invalid', 'vatid' => $request['vatid'], 'date' => $request['date']];
         }
     }
 }

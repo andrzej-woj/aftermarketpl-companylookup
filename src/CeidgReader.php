@@ -27,7 +27,7 @@ class CeidgReader
     /**
      * 
      */
-    public function __construct($apikey)
+    public function __construct(string $apikey = '')
     {
         $this->apikey = $apikey;
         try {
@@ -41,9 +41,11 @@ class CeidgReader
      */
     public function lookup(string $vatid)
     {
-        $this->validateVatid($vatid);
-
+        $vatid = $this->validateVatid($vatid, 'PL');
         list($country, $number) = $this->resolveVatid($vatid);
+
+
+
         try {
             $response = $this->api->GetMigrationData201901([
                 'AuthToken' => $this->apikey,
@@ -56,37 +58,48 @@ class CeidgReader
 
         if(preg_match("/Brak tokenu/i", $response->GetMigrationData201901Result))
         {
-            throw new CeidgReaderException("Nieprawidłowy klucz API CEIDG");
+            throw new CeidgReaderException("Incorrect API KEY CEIDG");
         }
 
         
         if(!isset($response->GetMigrationData201901Result))
         {
-            return [
-                "valid" => "unknown",
-                "country" => $country,
-                "vatid" => $vatid
-            ];                
+            throw new CeidgReaderException(("CEIDG API unavailable: [" . substr($response, 0,100) . "...]"));
         }
 
         $parsedResponse = @simplexml_load_string($response->GetMigrationData201901Result);
         if(!$parsedResponse) 
         {
-            return [
-                "valid" => "unknown",
-                "country" => $country,
-                "vatid" => $vatid
-            ];
+            throw new CeidgReaderException(("CEIDG API unknown response: [" . substr($response, 0,100) . "...]"));
         }
         
+        // Find active company
+        $resolvedCompany = false;
+        foreach($parsedResponse->InformacjaOWpisie as $wpis)
+        {
+            if($wpis->DaneDodatkowe->Status == 'Aktywny')
+            {
+                $resolvedCompany = $wpis;
+            }
+        }
+
+        if(!$resolvedCompany)
+        {
+            return [
+                'result' => 'invalid',
+                'country' => $country,
+                'vatid' => $vatid
+            ];
+        }
+
         return [
             'result' => 'valid',
             'country' => $country,
             'vatid' => $vatid,
-            'company' => (string) $parsedResponse->InformacjaOWpisie->DanePodstawowe->Firma,
-            'address' => (string) $parsedResponse->InformacjaOWpisie->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Ulica,
-            'zip' => (string) $parsedResponse->InformacjaOWpisie->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->KodPocztowy,
-            'city' => (string) $parsedResponse->InformacjaOWpisie->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Miejscowosc,
+            'company' => (string) $resolvedCompany->DanePodstawowe->Firma,
+            'address' => (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Ulica,
+            'zip' => (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->KodPocztowy,
+            'city' => (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Miejscowosc,
         ];
     }
 }

@@ -8,11 +8,18 @@ trait ResolvesVatid {
 
     public static function resolveVatid($vatid) 
     {
-        $country = substr($vatid, 0, 2);
+        $country = '';
+        preg_match("/^[a-zA-Z]{2}/", $vatid, $matches);
+        if(isset($matches[0]))
+        {
+            $country = $matches[0];
+        }
+
         Validator::validateCountry($country);
+
         return [
             $country,
-            str_replace(" ", "", substr($vatid, 2)),
+            str_replace(" ", "", str_replace($country, '', $vatid)),
         ];
     }
 

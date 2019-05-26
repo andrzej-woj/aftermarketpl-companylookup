@@ -1,8 +1,10 @@
 <?php
 require __DIR__ .'/vendor/autoload.php';
-$ceidgapikey = '';
+
+use Aftermarketpl\CompanyLookup\Env;
 
 $vies = new Aftermarketpl\CompanyLookup\ViesReader();
 $vat =  new Aftermarketpl\CompanyLookup\VatReader();
-$ceidg = new Aftermarketpl\CompanyLookup\CeidgReader($ceidgapikey);
-print_r($ceidg->lookup('PL6783041098'));
+$ceidg = new Aftermarketpl\CompanyLookup\CeidgReader(Env::$ceidgapikey);
+
+print_r($vat->lookup('5342532004'));
