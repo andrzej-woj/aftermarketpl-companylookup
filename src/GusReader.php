@@ -29,6 +29,12 @@ class GusReader
     private $api = null;
 
     private $options = [];
+    
+    /**
+     * Handle current report
+     */
+    private $report = false;
+
 
     /**
      * 
@@ -60,6 +66,8 @@ class GusReader
             foreach ($gusReports as $gusReport) {
                 if($gusReport->getActivityEndDate())
                     continue; // ommit inactive
+                
+                $this->report = $gusReport;
                 return $this->mapCompanyData($gusReport);
             }
 
@@ -84,7 +92,9 @@ class GusReader
 
             foreach ($gusReports as $gusReport) {
                 if($gusReport->getActivityEndDate())
-                    continue; // ommit inactive
+                    continue; // ommit inactive              
+                
+                $this->report = $gusReport;
                 return $this->mapCompanyData($gusReport);
             }
 
@@ -110,6 +120,8 @@ class GusReader
             foreach ($gusReports as $gusReport) {
                 if($gusReport->getActivityEndDate())
                     continue; // ommit inactive
+
+                $this->report = $gusReport;
                 return $this->mapCompanyData($gusReport);
             }
 
@@ -139,6 +151,28 @@ class GusReader
             'zip' => (string) $gusReport->getZipCode(),
             'city' => (string) $gusReport->getCity(),
         ]; 
+    }
+
+    public  function fetchPKD() {
+        if(! ($this->report instanceof SearchReport)) {
+            throw new GusReaderException('No company, please lookup company');
+        }
+        
+        switch($this->report->getType())
+        {
+            case 'p': // osoba prawna
+                $reportType = ReportTypes::REPORT_ACTIVITY_LAW_PUBLIC;
+                break;
+
+            case 'f': // osoba fizyczna
+                $reportType = ReportTypes::REPORT_LOCALS_PHYSIC_PUBLIC;
+                break; 
+            
+            default:
+                throw new GusReaderException('Uknown company type');
+        }
+        
+        return $this->api->getFullReport($this->report, $reportType);
     }
 
     /**
