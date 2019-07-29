@@ -5,6 +5,10 @@ namespace Aftermarketpl\CompanyLookup;
 use Aftermarketpl\CompanyLookup\Exceptions\VatReaderException;
 use SoapClient;
 
+use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
+use Aftermarketpl\CompanyLookup\Models\CompanyData;
+use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
+
 class VatReader
 {
     use Traits\ResolvesVatid, Traits\ValidatesVatid;
@@ -67,14 +71,19 @@ class VatReader
             throw new VatReaderException('Checking status currently not available');
         }
 
+        $companyData = new CompanyData;
+        $companyData->identifiers[] = new CompanyIdentifier('vat', $request['vatid']);
+
         if($response->Kod == 'C') 
         {
-            return ['result' => 'valid', 'vatid' => $request['vatid'], 'date' => $request['date']];
+            $companyData->valid = true;
         }
 
         if($response->Kod != "C") 
         {
-            return ['result' => 'invalid', 'vatid' => $request['vatid'], 'date' => $request['date']];
+            $companyData->valid = false;
         }
+
+        return $companyData;
     }
 }

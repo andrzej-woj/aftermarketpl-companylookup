@@ -4,6 +4,10 @@ namespace Aftermarketpl\CompanyLookup;
 
 use Throwable;
 use Aftermarketpl\CompanyLookup\Exceptions\ViesReaderException;
+use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
+use Aftermarketpl\CompanyLookup\Models\CompanyData;
+use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
+
 use SoapClient;
 
 class ViesReader
@@ -39,8 +43,8 @@ class ViesReader
 
         try {
             $response = $this->api->checkVat([
-                'countryCode' => 'ES',
-                'vatNumber' => 'B64724131'
+                'countryCode' => $country,
+                'vatNumber' => $number
             ]);
         } catch(Throwable $e) {
             throw new ViesReaderException('Checking status currently not available [' . $e->getMessage() . ']');
@@ -48,11 +52,10 @@ class ViesReader
 
         if(!$response->valid)
         {
-            return [
-                'valid' => false,
-                'vatid' => $vatid,
-                'country' => $country
-            ];            
+            $companyData = new CompanyData;
+            $companyData->valid = false;
+            $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
+            return $companyData;
         }
         else
         {
@@ -66,17 +69,20 @@ class ViesReader
 
             $address = trim(preg_replace("/^\-\-\-$/", "", $address));
 
-            return [
-                'result' => 'valid',
-                'valid' => true,
-                'country' => $country,
-                'vatid' => $vatid,
-                'company' => $response->name,
-                'address' => $address,
-                'zip' => $zip,
-                'city' => $city,
-                'date' => $response->requestDate
-            ];
+            $companyAddress = new CompanyAddress;
+            $companyAddress->country = $country;
+            $companyAddress->postalCode = $zip;
+            $companyAddress->address = $address;
+            $companyAddress->city = $city;
+
+            $companyData = new CompanyData;
+            $companyData->valid = true;
+            $companyData->name = $response->name;
+            
+            $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
+            $companyData->mainAddress = $companyAddress;
+
+            return $companyData;
         }
     }
 }

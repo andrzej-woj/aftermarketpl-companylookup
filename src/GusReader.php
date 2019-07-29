@@ -4,6 +4,10 @@ namespace Aftermarketpl\CompanyLookup;
 
 use Throwable;
 use Aftermarketpl\CompanyLookup\Exceptions\GusReaderException;
+use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
+use Aftermarketpl\CompanyLookup\Models\CompanyData;
+use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
+
 use SoapClient;
 
 use GusApi\BulkReportTypes;
@@ -47,8 +51,8 @@ class GusReader
             $this->api = new GusApi($apikey);
             $this->api->login();
         } catch(\Throwable $e) {
-            throw new CeidgReaderException('Checking status currently not available');
-        }           
+            throw new GusReaderException('Checking status currently not available');
+        }
         
     }
 
@@ -59,7 +63,7 @@ class GusReader
     {
         $vatid = $this->validateVatid($vatid, 'PL');
         list($country, $number) = $this->resolveVatid($vatid);
-
+        
         try {
             $gusReports = $this->api->getByNip($number);
 
@@ -75,11 +79,16 @@ class GusReader
             throw new GusReaderException('Checking status currently not available [Invalid Api key]');
         
         } catch (NotFoundException $e) {
-            return [
-                'result' => 'invalid',
-                'vatid' => $vatid
-            ];            
+            $companyData = new CompanyData;
+            $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
+            $companyData->valid = false;
+            return $companyData;
         }
+
+        $companyData = new CompanyData;
+        $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
+        $companyData->valid = false;
+        return $companyData;        
     }
 
     /**
@@ -87,26 +96,36 @@ class GusReader
      */
     public function lookupKRS(string $krs)
     {
+        $companyData = new CompanyData;
+
+
         try {
             $gusReports = $this->api->getByKrs($krs);
 
             foreach ($gusReports as $gusReport) {
                 if($gusReport->getActivityEndDate())
-                    continue; // ommit inactive              
+                    continue; // ommit inactive
                 
                 $this->report = $gusReport;
-                return $this->mapCompanyData($gusReport);
+                $companyData =  $this->mapCompanyData($gusReport);
+                $companyData->identifiers[] = new CompanyIdentifier('krs', $krs);
+                return $companyData;
             }
 
         } catch (InvalidUserKeyException $e) {
             throw new GusReaderException('Checking status currently not available [Invalid Api key]');
         
         } catch (NotFoundException $e) {
-            return [
-                'result' => 'invalid',
-                'krs' => $krs
-            ];            
+            $companyData = new CompanyData;
+            $companyData->identifiers[] = new CompanyIdentifier('krs', $krs);
+            $companyData->valid = false;
+            return $companyData;        
         }
+
+        $companyData = new CompanyData;
+        $companyData->identifiers[] = new CompanyIdentifier('krs', $krs);
+        $companyData->valid = false;
+        return $companyData;         
     }
 
     /**
@@ -114,6 +133,9 @@ class GusReader
      */
     public function lookupREGON(string $regon)
     {
+        $companyData = new CompanyData;
+        $companyData->identifiers[] = new CompanyIdentifier('regon', $regon);
+
         try {
             $gusReports = $this->api->getByRegon($regon);
 
@@ -129,11 +151,16 @@ class GusReader
             throw new GusReaderException('Checking status currently not available [Invalid Api key]');
         
         } catch (NotFoundException $e) {
-            return [
-                'result' => 'invalid',
-                'regon' => $regon
-            ];            
+            $companyData = new CompanyData;
+            $companyData->identifiers[] = new CompanyIdentifier('regon', $regon);
+            $companyData->valid = false;
+            return $companyData;       
         }
+
+        $companyData = new CompanyData;
+        $companyData->identifiers[] = new CompanyIdentifier('regon', $regon);
+        $companyData->valid = false;
+        return $companyData;         
     }
 
 
@@ -141,19 +168,30 @@ class GusReader
      * 
      */
     protected function mapCompanyData(SearchReport $gusReport) {
-        return [
-            'result' => 'valid',
-            'country' => 'PL',
-            'vatid' => $gusReport->getNip(),
-            'regon' => $gusReport->getRegon(),
-            'company' => (string) $gusReport->getName(),
-            'address' => (string) $gusReport->getStreet().' '.$gusReport->getPropertyNumber() . ( $gusReport->getApartmentNumber() ? '/'.$gusReport->getApartmentNumber() : ''),
-            'zip' => (string) $gusReport->getZipCode(),
-            'city' => (string) $gusReport->getCity(),
-        ]; 
+        $companyAddress = new CompanyAddress;
+        $companyAddress->country = 'PL';
+        $companyAddress->postalCode = (string) $gusReport->getZipCode();
+        $companyAddress->address = (string) $gusReport->getStreet().' '.$gusReport->getPropertyNumber() . ( $gusReport->getApartmentNumber() ? '/'.$gusReport->getApartmentNumber() : '');
+        $companyAddress->city = (string) $gusReport->getCity();
+
+        $companyData = new CompanyData;
+        $companyData->valid = true;
+        $companyData->name = (string) $gusReport->getName();
+        
+        $companyData->identifiers = [];
+        $companyData->identifiers[] = new CompanyIdentifier('vat', $gusReport->getNip());
+        $companyData->identifiers[] = new CompanyIdentifier('regon', $gusReport->getRegon());
+
+        $companyData->mainAddress = $companyAddress;
+
+        $companyData->pkdCodes = array_map(function($v){
+            return $v['praw_pkdKod'];
+        }, $this->fetchPKD());
+
+        return $companyData;
     }
 
-    public  function fetchPKD() {
+    private function fetchPKD() {
         if(! ($this->report instanceof SearchReport)) {
             throw new GusReaderException('No company, please lookup company');
         }

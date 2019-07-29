@@ -64,17 +64,18 @@ class CeidgReader
         
         if(!isset($response->GetMigrationData201901Result))
         {
-            throw new CeidgReaderException(("CEIDG API unavailable: [" . substr($response, 0,100) . "...]"));
+            throw new CeidgReaderException(("CEIDG API unavailable: [" . @substr($response, 0,100) . "...]"));
         }
 
         $parsedResponse = @simplexml_load_string($response->GetMigrationData201901Result);
         if(!$parsedResponse) 
         {
-            throw new CeidgReaderException(("CEIDG API unknown response: [" . substr($response, 0,100) . "...]"));
+            throw new CeidgReaderException(("CEIDG API unknown response: [" . @substr($response, 0,100) . "...]"));
         }
         
         // Find active company
         $resolvedCompany = false;
+
         foreach($parsedResponse->InformacjaOWpisie as $wpis)
         {
             if($wpis->DaneDodatkowe->Status == 'Aktywny')
@@ -85,21 +86,28 @@ class CeidgReader
 
         if(!$resolvedCompany)
         {
-            return [
-                'result' => 'invalid',
-                'country' => $country,
-                'vatid' => $vatid
-            ];
+            $companyData = new CompanyData;
+            $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
+            $companyData->valid = false;
+            return $companyData;
         }
 
-        return [
-            'result' => 'valid',
-            'country' => $country,
-            'vatid' => $vatid,
-            'company' => (string) $resolvedCompany->DanePodstawowe->Firma,
-            'address' => (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Ulica,
-            'zip' => (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->KodPocztowy,
-            'city' => (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Miejscowosc,
-        ];
+        $companyAddress = new CompanyAddress;
+        $companyAddress->country = $country;
+        $companyAddress->postalCode = (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->KodPocztowy;
+        $companyAddress->address = (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Ulica;
+        $companyAddress->city = (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Miejscowosc;
+
+        $companyData = new CompanyData;
+        $companyData->valid = true;
+        $companyData->name = (string) $resolvedCompany->DanePodstawowe->Firma;
+        
+        $companyData->identifiers = [];
+        $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
+
+        $companyData->mainAddress = $companyAddress;
+
+        return $companyData;
+
     }
 }
