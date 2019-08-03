@@ -18,7 +18,7 @@ final class CeidgTest extends TestCase
 
     public function testCorrectNip()
     {
-        $response = self::$reader->lookup('PL5342487137');
+        $response = self::$reader->lookup('PL7282697380');
         $this->assertTrue($response->valid);
     }
 
@@ -26,5 +26,11 @@ final class CeidgTest extends TestCase
     {
         $response = self::$reader->lookup('PL5252389922');
         $this->assertFalse($response->valid);
+    }
+
+    public function testMultiCompanies()
+    {
+        $response = self::$reader->lookup('PL6422995563');
+        $this->assertTrue($response->valid);
     }
 }

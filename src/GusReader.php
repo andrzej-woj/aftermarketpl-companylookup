@@ -59,7 +59,7 @@ class GusReader
     /**
      * Lookup company by vatid
      */
-    public function lookup(string $vatid)
+    public function lookup(string $vatid) : Companydata
     {
         $vatid = $this->validateVatid($vatid, 'PL');
         list($country, $number) = $this->resolveVatid($vatid);
@@ -74,7 +74,11 @@ class GusReader
                 $this->report = $gusReport;
                 return $this->mapCompanyData($gusReport);
             }
-
+            // inactive, but in results
+            if($gusReport) {
+                $this->report = $gusReport;
+                return $this->mapCompanyData($gusReport);
+            }
         } catch (InvalidUserKeyException $e) {
             throw new GusReaderException('Checking status currently not available [Invalid Api key]');
         
@@ -110,6 +114,12 @@ class GusReader
                 $companyData =  $this->mapCompanyData($gusReport);
                 $companyData->identifiers[] = new CompanyIdentifier('krs', $krs);
                 return $companyData;
+            }
+            // inactive, but in results
+            if($gusReport) {
+                $this->report = $gusReport;
+                $companyData->identifiers[] = new CompanyIdentifier('krs', $krs);
+                return $this->mapCompanyData($gusReport);
             }
 
         } catch (InvalidUserKeyException $e) {
@@ -147,6 +157,13 @@ class GusReader
                 return $this->mapCompanyData($gusReport);
             }
 
+            // inactive, but in results
+            if($gusReport) {
+                $this->report = $gusReport;
+                $companyData->identifiers[] = new CompanyIdentifier('regon', $regon);
+                return $this->mapCompanyData($gusReport);
+            }
+
         } catch (InvalidUserKeyException $e) {
             throw new GusReaderException('Checking status currently not available [Invalid Api key]');
         
@@ -163,11 +180,7 @@ class GusReader
         return $companyData;         
     }
 
-
-    /**
-     * 
-     */
-    protected function mapCompanyData(SearchReport $gusReport) {
+    protected function mapCompanyData(SearchReport $gusReport) : CompanyData {
         $companyAddress = new CompanyAddress;
         $companyAddress->country = 'PL';
         $companyAddress->postalCode = (string) $gusReport->getZipCode();
@@ -175,7 +188,11 @@ class GusReader
         $companyAddress->city = (string) $gusReport->getCity();
 
         $companyData = new CompanyData;
-        $companyData->valid = true;
+        if($gusReport->getActivityEndDate())
+            $companyData->valid = false;
+        else 
+            $companyData->valid = true;
+
         $companyData->name = (string) $gusReport->getName();
         
         $companyData->identifiers = [];
@@ -185,19 +202,21 @@ class GusReader
         $companyData->mainAddress = $companyAddress;
 
         $companyData->pkdCodes = array_map(function($v){
-            return $v['praw_pkdKod'];
+            if(isset($v['fiz_pkd_Kod']))
+                return $v['fiz_pkd_Kod'];
+            if(isset($v['praw_pkdKod']))
+                return $v['praw_pkdKod'];
         }, $this->fetchPKD());
 
         return $companyData;
     }
 
-    private function fetchPKD() {
+    private function fetchPKD()  {
         if(! ($this->report instanceof SearchReport)) {
             throw new GusReaderException('No company, please lookup company');
         }
         
-        switch($this->report->getType())
-        {
+        switch($this->report->getType()) {
             case 'p': // osoba prawna
                 $reportType = ReportTypes::REPORT_ACTIVITY_LAW_PUBLIC;
                 break;
@@ -213,12 +232,8 @@ class GusReader
         return $this->api->getFullReport($this->report, $reportType);
     }
 
-    /**
-     * 
-     */
-    protected function handleFullReport(SearchReport $report) {
-        switch($report->getType())
-        {
+    protected function handleFullReport(SearchReport $report) : SearchReport {
+        switch($report->getType()) {
             case 'p': // osoba prawna
                 $reportType = ReportTypes::REPORT_PUBLIC_LAW;
                 break;

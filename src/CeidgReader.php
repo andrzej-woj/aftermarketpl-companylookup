@@ -4,6 +4,10 @@ namespace Aftermarketpl\CompanyLookup;
 
 use Throwable;
 use Aftermarketpl\CompanyLookup\Exceptions\CeidgReaderException;
+use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
+use Aftermarketpl\CompanyLookup\Models\CompanyData;
+use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
+
 use SoapClient;
 
 /**
@@ -38,13 +42,12 @@ class CeidgReader
     }
 
     /**
+     * API Lookup
      */
-    public function lookup(string $vatid)
+    public function lookup(string $vatid) : CompanyData
     {
         $vatid = $this->validateVatid($vatid, 'PL');
         list($country, $number) = $this->resolveVatid($vatid);
-
-
 
         try {
             $response = $this->api->GetMigrationData201901([
@@ -56,58 +59,79 @@ class CeidgReader
         }              
 
 
-        if(preg_match("/Brak tokenu/i", $response->GetMigrationData201901Result))
-        {
+        if(preg_match("/Brak tokenu/i", $response->GetMigrationData201901Result)) {
             throw new CeidgReaderException("Incorrect API KEY CEIDG");
         }
 
         
-        if(!isset($response->GetMigrationData201901Result))
-        {
+        if(!isset($response->GetMigrationData201901Result)) {
             throw new CeidgReaderException(("CEIDG API unavailable: [" . @substr($response, 0,100) . "...]"));
         }
-
         $parsedResponse = @simplexml_load_string($response->GetMigrationData201901Result);
-        if(!$parsedResponse) 
-        {
-            throw new CeidgReaderException(("CEIDG API unknown response: [" . @substr($response, 0,100) . "...]"));
+        if(!$parsedResponse) {
+            $companyData = new CompanyData;
+            $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
+            $companyData->valid = false;
+            return $companyData;            
         }
-        
+
         // Find active company
         $resolvedCompany = false;
-
-        foreach($parsedResponse->InformacjaOWpisie as $wpis)
-        {
-            if($wpis->DaneDodatkowe->Status == 'Aktywny')
-            {
+        $wpis = false;
+        foreach($parsedResponse->InformacjaOWpisie as $wpis) {
+            if($wpis->DaneDodatkowe->Status == 'Aktywny') {
                 $resolvedCompany = $wpis;
             }
         }
 
-        if(!$resolvedCompany)
-        {
+        // Jeżeli nic nie zwrócono, budujemy wpis invalid
+        if(!$resolvedCompany && !$wpis) {
             $companyData = new CompanyData;
             $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
             $companyData->valid = false;
             return $companyData;
+        } elseif(!$resolvedCompany) {
+            $resolvedCompany = $wpis;
         }
 
-        $companyAddress = new CompanyAddress;
-        $companyAddress->country = $country;
-        $companyAddress->postalCode = (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->KodPocztowy;
-        $companyAddress->address = (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Ulica;
-        $companyAddress->city = (string) $resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci->Miejscowosc;
-
         $companyData = new CompanyData;
-        $companyData->valid = true;
+
+        $companyData->mainAddress =  $this->parseAddress($resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci);
+        $companyData->additionalAddresses[] = $this->parseAddress($resolvedCompany->DaneAdresowe->AdresDoDoreczen);
+
+        if($resolvedCompany->DaneDodatkowe->Status == 'Aktywny') {
+            $companyData->valid = true;
+        } else {
+            $companyData->valid = false;
+        }
+
         $companyData->name = (string) $resolvedCompany->DanePodstawowe->Firma;
-        
+
         $companyData->identifiers = [];
         $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
-
-        $companyData->mainAddress = $companyAddress;
+        $companyData->identifiers[] = new CompanyIdentifier('regon', (string) $resolvedCompany->DanePodstawowe->REGON);
+        $companyData->startDate = (string)$resolvedCompany->DaneDodatkowe->DataRozpoczeciaWykonywaniaDzialalnosciGospodarczej;
+        $companyData->pkdCodes = mb_split(",", (string) $resolvedCompany->DaneDodatkowe->KodyPKD);
+        
+        if((string)$resolvedCompany->DaneKontaktowe->Telefon)
+            $companyData->phoneNumbers = [(string)$resolvedCompany->DaneKontaktowe->Telefon];
+        
+        if((string)$resolvedCompany->DaneKontaktowe->AdresPocztyElektronicznej)
+            $companyData->emailAddresses = [(string)$resolvedCompany->DaneKontaktowe->AdresPocztyElektronicznej];
+        
+        if((string)$resolvedCompany->DaneKontaktowe->AdresStronyInternetowej)
+            $companyData->websiteAddresses = [(string)$resolvedCompany->DaneKontaktowe->AdresStronyInternetowej];
 
         return $companyData;
+    }
 
+    private function parseAddress($address) : CompanyAddress 
+    {
+        $companyAddress = new CompanyAddress;
+        $companyAddress->country = 'PL';
+        $companyAddress->postalCode = (string) $address->KodPocztowy;
+        $companyAddress->address = (string) $address->Ulica;
+        $companyAddress->city = (string) $address->Miejscowosc;
+        return $companyAddress;
     }
 }
