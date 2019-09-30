@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use Aftermarketpl\CompanyLookup\Exceptions\ViesReaderException;
+use Aftermarketpl\CompanyLookup\ViesReader;
 use PHPUnit\Framework\TestCase;
 
 final class ViesTest extends TestCase
@@ -49,5 +51,21 @@ final class ViesTest extends TestCase
     {
         $response = self::$reader->lookup('IE3232319JH');
         $this->assertTrue($response->valid);
+    }
+
+    public function testClientOptionsArePassed(): void
+    {
+        $invalidOptions = [
+            'location' => '127.0.0.1',
+        ];
+
+        $reader = new ViesReader($invalidOptions);
+
+        try {
+            $reader->lookup('PL9121875009');
+            $this->fail('SoapClient should throw exception');
+        } catch (ViesReaderException $e) {
+            $this->addToAssertionCount(1);
+        }
     }
 }
