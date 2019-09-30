@@ -24,10 +24,8 @@ class ViesReader
      */
     public function __construct($options = [])
     {
-        $this->options = $options;
-    
         try {
-            $this->api = new SoapClient($this->ws_url);
+            $this->api = new SoapClient($this->ws_url, $options);
         } catch(\Throwable $e) {
             throw new ViesReaderException('Checking status currently not available');
         }
