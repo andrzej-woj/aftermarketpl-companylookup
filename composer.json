@@ -16,7 +16,9 @@
     "autoload": {
         "psr-4": {
             "Aftermarketpl\\CompanyLookup\\": "src/"
-        },
+        }
+    },
+    "autoload-dev": {
         "files": ["env.php"]
     },
     "minimum-stability": "dev",
