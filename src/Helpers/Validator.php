@@ -156,9 +156,9 @@ class Validator {
         
     }
 
-    function validateCountry($country) 
+    public static function validateCountry($country)
     {
-        $allowedCountryCodes = ["ES","EL","IE","DZ","SA","AU","AT","CN","CY","DK","PH","FI","FR","GR","IN","IS","JP","CR","KW","LS","LI","MY","MX","MC","DE","NO","NZ","ZA","RU","SG","CH","TH","TN","TR","HU","VN","IT","FO","IR","ID","BR","NL","CA","PL","SE","CZ","SK","BE","BG","EE","MT","LT","LU","LV","RO","SI","HR","PT"];
+        $allowedCountryCodes = ["ES","EL","IE","DZ","SA","AU","AT","CN","CY","DK","PH","FI","FR","GB","GR","IN","IS","JP","CR","KW","LS","LI","MY","MX","MC","DE","NO","NZ","ZA","RU","SG","CH","TH","TN","TR","HU","VN","IT","FO","IR","ID","BR","NL","CA","PL","SE","CZ","SK","BE","BG","EE","MT","LT","LU","LV","RO","SI","HR","PT"];
         if(! in_array($country, $allowedCountryCodes))
         {
             throw new ValidatorException("Incorrect country code");
