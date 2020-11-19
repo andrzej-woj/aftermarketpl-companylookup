@@ -1,10 +1,9 @@
 <?php
 declare(strict_types=1);
 
-use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
-use Aftermarketpl\CompanyLookup\Models\CompanyRepresentative;
-use PHPUnit\Framework\TestCase;
 use Aftermarketpl\CompanyLookup\Env;
+use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
+use PHPUnit\Framework\TestCase;
 
 final class CeidgTest extends TestCase
 {
@@ -34,6 +33,14 @@ final class CeidgTest extends TestCase
     {
         $response = self::$reader->lookup('PL6422995563');
         $this->assertTrue($response->valid);
+    }
+
+    public function testPartnetship()
+    {
+        $response = self::$reader->lookupPartnership('PL6783053210');
+        foreach ($response as $companyData) {
+            $this->assertTrue($companyData->valid);
+        }
     }
 
     public function testVatIdentifierIsWithoutCountryCode()
