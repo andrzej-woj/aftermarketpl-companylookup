@@ -18,7 +18,7 @@ final class GusTest extends TestCase
 
     public function testCorrectNip()
     {
-        $response = self::$reader->lookup('PL9121875009');
+        $response = self::$reader->lookup('PL7282697380');
         $this->assertTrue($response->valid);
     }
 

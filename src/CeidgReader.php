@@ -2,6 +2,7 @@
 
 namespace Aftermarketpl\CompanyLookup;
 
+use Aftermarketpl\CompanyLookup\Models\CompanyRepresentative;
 use Throwable;
 use Aftermarketpl\CompanyLookup\Exceptions\CeidgReaderException;
 use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
@@ -87,7 +88,7 @@ class CeidgReader
         // Jeżeli nic nie zwrócono, budujemy wpis invalid
         if(!$resolvedCompany && !$wpis) {
             $companyData = new CompanyData;
-            $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
+            $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
             $companyData->valid = false;
             return $companyData;
         } elseif(!$resolvedCompany) {
@@ -108,7 +109,7 @@ class CeidgReader
         $companyData->name = (string) $resolvedCompany->DanePodstawowe->Firma;
 
         $companyData->identifiers = [];
-        $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
+        $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
         $companyData->identifiers[] = new CompanyIdentifier('regon', (string) $resolvedCompany->DanePodstawowe->REGON);
         $companyData->startDate = (string)$resolvedCompany->DaneDodatkowe->DataRozpoczeciaWykonywaniaDzialalnosciGospodarczej;
         $companyData->pkdCodes = mb_split(",", (string) $resolvedCompany->DaneDodatkowe->KodyPKD);
@@ -121,6 +122,11 @@ class CeidgReader
         
         if((string)$resolvedCompany->DaneKontaktowe->AdresStronyInternetowej)
             $companyData->websiteAddresses = [(string)$resolvedCompany->DaneKontaktowe->AdresStronyInternetowej];
+
+        $companyData->representatives[] = new CompanyRepresentative(
+            (string) $resolvedCompany->DanePodstawowe->Imie,
+            (string) $resolvedCompany->DanePodstawowe->Nazwisko
+        );
 
         return $companyData;
     }

@@ -29,15 +29,16 @@ class VatReader
     public function lookup(string $vatid)
     {
         $vatid = $this->validateVatid($vatid, 'PL');
+        list($country, $number) = $this->resolveVatid($vatid);
 
         try {
             $api = new SoapClient($this->ws_url);
-            $response = $api->sprawdzNIP($vatid);
+            $response = $api->sprawdzNIP($number);
         } catch(\Throwable $e) {
             throw new VatReaderException('Checking status currently not available');
         }
 
-        return $this->handleResponse($response, ['vatid' => $vatid, 'date' => strftime("%Y-%m-%d", mktime())]);
+        return $this->handleResponse($response, ['vatid' => $number, 'date' => strftime("%Y-%m-%d", time())]);
     }
 
     /**
@@ -45,6 +46,7 @@ class VatReader
     public function lookupDate(string $vatid, string $date)
     {
         $vatid = $this->validateVatid($vatid, 'PL');
+        list($country, $number) = $this->resolveVatid($vatid);
 
         try {
             $api = new SoapClient($this->ws_url);
@@ -53,7 +55,7 @@ class VatReader
             throw new VatReaderException('Checking status currently not available');
         }
 
-        return $this->handleResponse($response, ['vatid' => $vatid, 'date' => $date]);
+        return $this->handleResponse($response, ['vatid' => $number, 'date' => $date]);
     }
 
     /**
