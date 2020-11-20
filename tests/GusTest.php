@@ -50,5 +50,27 @@ final class GusTest extends TestCase
     {
         $response = self::$reader->lookupKrs('513708111');
         $this->assertFalse($response->valid);
-    }    
+    }
+
+    public function testStartDate()
+    {
+        $response = self::$reader->lookup('PL7282697380');
+        $this->assertTrue($response->valid);
+        $this->assertTrue(strtotime($response->startDate) !== false);
+    }
+
+    public function testStartDate2()
+    {
+        $response = self::$reader->lookup('PL9121874990');
+        $this->assertTrue($response->valid);
+        $this->assertTrue(strtotime($response->startDate) !== false);
+    }
+
+    public function testRepresentatives()
+    {
+        $response = self::$reader->lookup('PL7282697380');
+        $this->assertCount(1, $response->representatives);
+        $this->assertEquals("MICHAŁ", $response->representatives[0]->firstName);
+        $this->assertEquals("MAZUR", $response->representatives[0]->lastName);
+    }
 }

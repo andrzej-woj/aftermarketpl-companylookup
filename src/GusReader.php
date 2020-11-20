@@ -2,6 +2,7 @@
 
 namespace Aftermarketpl\CompanyLookup;
 
+use Aftermarketpl\CompanyLookup\Models\CompanyRepresentative;
 use Throwable;
 use Aftermarketpl\CompanyLookup\Exceptions\GusReaderException;
 use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
@@ -72,13 +73,13 @@ class GusReader
                     continue; // ommit inactive
                 
                 $this->report = $gusReport;
-                return $this->mapCompanyData($gusReport);
             }
             // inactive, but in results
             if($gusReport) {
                 $this->report = $gusReport;
-                return $this->mapCompanyData($gusReport);
             }
+
+            return $this->mapCompanyData($this->report);
         } catch (InvalidUserKeyException $e) {
             throw new GusReaderException('Checking status currently not available [Invalid Api key]');
         
@@ -181,6 +182,9 @@ class GusReader
     }
 
     protected function mapCompanyData(SearchReport $gusReport) : CompanyData {
+        $activityReport = $this->getActivityReport($this->report);
+        $personReports = $this->getPersonReport($this->report);
+
         $companyAddress = new CompanyAddress;
         $companyAddress->country = 'PL';
         $companyAddress->postalCode = (string) $gusReport->getZipCode();
@@ -194,7 +198,27 @@ class GusReader
             $companyData->valid = true;
 
         $companyData->name = (string) $gusReport->getName();
-        
+        $companyData->startDate = $activityReport[0]['fiz_dataRozpoczeciaDzialalnosci']
+            ?? $activityReport[0]['praw_dataRozpoczeciaDzialalnosci']
+            ?? null;
+
+        $representatives = [];
+        foreach ($personReports as $personReport) {
+            if (empty($personReport["fiz_nazwisko"])) {
+                continue;
+            }
+
+            $new = new CompanyRepresentative($personReport["fiz_imie1"], $personReport["fiz_nazwisko"]);
+            $same = array_filter($representatives, function (CompanyRepresentative $existing) use ($new) {
+                return $existing->equals($new);
+            });
+
+            if (empty($same)) {
+                $representatives[] = $new;
+            }
+        }
+        $companyData->representatives = $representatives;
+
         $companyData->identifiers = [];
         $companyData->identifiers[] = new CompanyIdentifier('vat', $gusReport->getNip());
         $companyData->identifiers[] = new CompanyIdentifier('regon', $gusReport->getRegon());
@@ -232,7 +256,37 @@ class GusReader
         return $this->api->getFullReport($this->report, $reportType);
     }
 
-    protected function handleFullReport(SearchReport $report) : SearchReport {
+    protected function getActivityReport(SearchReport $report): array
+    {
+        switch($report->getType()) {
+            case 'p': // osoba prawna
+                $reportType = ReportTypes::REPORT_PUBLIC_LAW;
+                break;
+
+            case 'f': // osoba fizyczna
+                switch ($report->getSilo()) {
+                    case 1:
+                        $reportType = ReportTypes::REPORT_ACTIVITY_PHYSIC_CEIDG;
+                        break;
+                    case 2:
+                        $reportType = ReportTypes::REPORT_ACTIVITY_PHYSIC_AGRO;
+                        break;
+                    case 3:
+                        $reportType = ReportTypes::REPORT_ACTIVITY_PHYSIC_OTHER_PUBLIC;
+                        break;
+                    default:
+                        throw new GusReaderException("Invalid SiloId");
+                }
+                break;
+            default:
+                throw new GusReaderException("Invalid SiloId");
+        }
+
+        return $this->api->getFullReport($report, $reportType);
+    }
+
+    protected function getPersonReport(SearchReport $report): array
+    {
         switch($report->getType()) {
             case 'p': // osoba prawna
                 $reportType = ReportTypes::REPORT_PUBLIC_LAW;
@@ -240,8 +294,11 @@ class GusReader
 
             case 'f': // osoba fizyczna
                 $reportType = ReportTypes::REPORT_ACTIVITY_PHYSIC_PERSON;
-                break;                    
+                break;
+            default:
+                throw new GusReaderException("Invalid SiloId");
         }
+
         return $this->api->getFullReport($report, $reportType);
     }
 }

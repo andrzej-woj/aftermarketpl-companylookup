@@ -12,4 +12,10 @@ class CompanyRepresentative
         $this->firstName = $firstName;
         $this->lastName = $lastName;
     }
+
+    public function equals(CompanyRepresentative $representative): bool
+    {
+        return $this->firstName === $representative->firstName
+            && $this->lastName === $representative->lastName;
+    }
 }

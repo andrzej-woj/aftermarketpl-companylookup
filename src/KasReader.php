@@ -18,7 +18,12 @@ class KasReader
 
     private $ws_url = 'https://wl-api.mf.gov.pl';
 
-    public function lookup(string $vatid, string $date) : CompanyData
+    public function lookup(string $vatid) : CompanyData
+    {
+        return $this->lookupByDate($vatid, date('Y-m-d'));
+    }
+
+    public function lookupByDate(string $vatid, string $date) : CompanyData
     {
         $vatid = $this->validateVatid($vatid, 'PL');
         list($country, $number) = $this->resolveVatid($vatid);
@@ -61,12 +66,23 @@ class KasReader
             $companyData->valid = false;
         }
 
+        if(preg_match('/^(?P<address>.*?)(,)?\s+(?P<postcode>\d{2}-\d{3})\s+(?P<city>.*)$/', $result["residenceAddress"], $matches)) {
+            $address = new CompanyAddress();
+            $address->country = 'PL';
+            $address->postalCode = $matches["postcode"];
+            $address->city = $matches["city"];
+            $address->address = $matches["address"];
+            $companyData->mainAddress = $address;
+        }
+
         $companyData->startDate = $result["registrationLegalDate"];
 
         $companyData->identifiers = [];
         $companyData->identifiers[] = new CompanyIdentifier('vat', $result["nip"]);
         $companyData->identifiers[] = new CompanyIdentifier('regon', $result["regon"]);
-        $companyData->identifiers[] = new CompanyIdentifier('krs', $result["krs"]);
+        if($result["krs"]) {
+            $companyData->identifiers[] = new CompanyIdentifier('krs', $result["krs"]);
+        }
 
         foreach ($result["representatives"] as $representative) {
             $companyData->representatives[] = new CompanyRepresentative(
