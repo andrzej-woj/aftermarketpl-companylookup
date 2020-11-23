@@ -73,4 +73,14 @@ final class GusTest extends TestCase
         $this->assertEquals("MICHAŁ", $response->representatives[0]->firstName);
         $this->assertEquals("MAZUR", $response->representatives[0]->lastName);
     }
+
+    public function testOrganizationRepresentatives()
+    {
+        $response = self::$reader->lookup('PL7252285833');
+        $this->assertCount(2, $response->representatives);
+        $this->assertEquals("MICHAŁ", $response->representatives[0]->firstName);
+        $this->assertEquals("MAZUR", $response->representatives[0]->lastName);
+        $this->assertEquals("KLAUDIA", $response->representatives[1]->firstName);
+        $this->assertEquals("GORZKOWSKA", $response->representatives[1]->lastName);
+    }
 }

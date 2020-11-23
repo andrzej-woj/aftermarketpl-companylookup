@@ -66,13 +66,14 @@ class KasReader
             $companyData->valid = false;
         }
 
-        if(preg_match('/^(?P<address>.*?)(,)?\s+(?P<postcode>\d{2}-\d{3})\s+(?P<city>.*)$/', $result["residenceAddress"], $matches)) {
-            $address = new CompanyAddress();
-            $address->country = 'PL';
-            $address->postalCode = $matches["postcode"];
-            $address->city = $matches["city"];
-            $address->address = $matches["address"];
-            $companyData->mainAddress = $address;
+        $companyData->mainAddress = $this->getAddress($result["residenceAddress"]);
+        if (!$companyData->mainAddress) {
+            $companyData->mainAddress = $this->getAddress($result["workingAddress"]);
+        } else {
+            $address = $this->getAddress($result["workingAddress"]);
+            if ($address) {
+                $companyData->additionalAddresses[] = $address;
+            }
         }
 
         $companyData->startDate = $result["registrationLegalDate"];
@@ -92,5 +93,19 @@ class KasReader
         }
 
         return $companyData;
+    }
+
+    private function getAddress(?string $address): ?CompanyAddress
+    {
+        if(!preg_match('/^(?P<address>.*?)(,)?\s+(?P<postcode>\d{2}-\d{3})\s+(?P<city>.*)$/', $address, $matches)) {
+            return null;
+        }
+
+        $address = new CompanyAddress();
+        $address->country = 'PL';
+        $address->postalCode = $matches["postcode"];
+        $address->city = $matches["city"];
+        $address->address = $matches["address"];
+        return $address;
     }
 }

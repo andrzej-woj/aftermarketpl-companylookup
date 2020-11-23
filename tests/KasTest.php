@@ -41,9 +41,20 @@ final class KasTest extends TestCase
         self::$reader->lookup('PL6422995563');
     }
 
-    public function testAddress()
+    public function testPersonAddress()
     {
         $response = self::$reader->lookup('PL7282697380');
+        $mainAddress = $response->mainAddress;
+        $this->assertNotEmpty($mainAddress);
+        $this->assertNotEmpty($mainAddress->address);
+        $this->assertNotEmpty($mainAddress->postalCode);
+        $this->assertNotEmpty($mainAddress->city);
+        $this->assertNotEmpty($mainAddress->country);
+    }
+
+    public function testOrganizationAddress()
+    {
+        $response = self::$reader->lookup('PL7252285833');
         $mainAddress = $response->mainAddress;
         $this->assertNotEmpty($mainAddress);
         $this->assertNotEmpty($mainAddress->address);

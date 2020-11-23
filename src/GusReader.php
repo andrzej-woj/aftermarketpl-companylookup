@@ -183,7 +183,6 @@ class GusReader
 
     protected function mapCompanyData(SearchReport $gusReport) : CompanyData {
         $activityReport = $this->getActivityReport($this->report);
-        $personReports = $this->getPersonReport($this->report);
 
         $companyAddress = new CompanyAddress;
         $companyAddress->country = 'PL';
@@ -202,22 +201,7 @@ class GusReader
             ?? $activityReport[0]['praw_dataRozpoczeciaDzialalnosci']
             ?? null;
 
-        $representatives = [];
-        foreach ($personReports as $personReport) {
-            if (empty($personReport["fiz_nazwisko"])) {
-                continue;
-            }
-
-            $new = new CompanyRepresentative($personReport["fiz_imie1"], $personReport["fiz_nazwisko"]);
-            $same = array_filter($representatives, function (CompanyRepresentative $existing) use ($new) {
-                return $existing->equals($new);
-            });
-
-            if (empty($same)) {
-                $representatives[] = $new;
-            }
-        }
-        $companyData->representatives = $representatives;
+        $companyData->representatives = $this->getRepresentatives($this->report);
 
         $companyData->identifiers = [];
         $companyData->identifiers[] = new CompanyIdentifier('vat', $gusReport->getNip());
@@ -285,20 +269,52 @@ class GusReader
         return $this->api->getFullReport($report, $reportType);
     }
 
-    protected function getPersonReport(SearchReport $report): array
+    private function getRepresentatives(SearchReport $report): array
     {
-        switch($report->getType()) {
-            case 'p': // osoba prawna
-                $reportType = ReportTypes::REPORT_PUBLIC_LAW;
-                break;
+        $representatives = [];
 
-            case 'f': // osoba fizyczna
-                $reportType = ReportTypes::REPORT_ACTIVITY_PHYSIC_PERSON;
-                break;
-            default:
-                throw new GusReaderException("Invalid SiloId");
+        if ($report->getType() == 'f') {
+            $reportType = ReportTypes::REPORT_ACTIVITY_PHYSIC_PERSON;
+            $report = $this->api->getFullReport($report, $reportType);
+
+            foreach ($report as $personReport) {
+                if (empty($personReport["fiz_nazwisko"])) {
+                    continue;
+                }
+
+                $new = new CompanyRepresentative($personReport["fiz_imie1"], $personReport["fiz_nazwisko"]);
+                $same = array_filter($representatives, function (CompanyRepresentative $existing) use ($new) {
+                    return $existing->equals($new);
+                });
+
+                if (empty($same)) {
+                    $representatives[] = $new;
+                }
+            }
+
+            return $representatives;
         }
 
-        return $this->api->getFullReport($report, $reportType);
+        if ($report->getType() == 'p') {
+            $reportType = ReportTypes::REPORT_COMMON_LAW_PUBLIC;
+            $report = $this->api->getFullReport($report, $reportType);
+
+            foreach ($report as $personReport) {
+                if (empty($personReport["wspolsc_nazwisko"])) {
+                    continue;
+                }
+
+                $new = new CompanyRepresentative(
+                    $personReport["wspolsc_imiePierwsze"],
+                    $personReport["wspolsc_nazwisko"]
+                );
+
+                $representatives[] = $new;
+            }
+
+            return $representatives;
+        }
+
+        throw new GusReaderException("Invalid SiloId");
     }
 }
