@@ -13,7 +13,7 @@ use SoapClient;
  * https://datastore.ceidg.gov.pl/CEIDG.DataStore/Styles/Regulations/API_Datastore_20190314.pdf
  * 
  */
-class CeidgReader
+class CeidgReader implements Reader
 {
     use Traits\ResolvesVatid;
     use Traits\ValidatesVatid;
@@ -43,38 +43,49 @@ class CeidgReader
     /**
      * API Lookup
      */
-    public function lookup(string $vatid) : CompanyData
+    public function lookup(string $id, string $type = IdentifierType::NIP) : Companydata
     {
-        $vatid = $this->validateVatid($vatid, 'PL');
-        list($country, $number) = $this->resolveVatid($vatid);
-
-        try {
-            $response = $this->api->GetMigrationData201901([
-                'AuthToken' => $this->apikey,
-                'NIP' => [$number]
-            ]);
-        } catch(\Throwable $e) {
-            throw new CeidgReaderException('Checking status currently not available');
-        }              
-
-
-        if(preg_match("/Brak tokenu/i", $response->GetMigrationData201901Result)) {
-            throw new CeidgReaderException("Incorrect API KEY CEIDG");
+        switch ($type) {
+            case IdentifierType::NIP:
+                return $this->lookupNIP($id);
+            case IdentifierType::REGON:
+                return $this->lookupREGON($id);
+            default:
+                throw new CeidgReaderException(sprintf('Identifier type \'%s\' is not supported', $type));
         }
+    }
 
-        
-        if(!isset($response->GetMigrationData201901Result)) {
-            throw new CeidgReaderException(("CEIDG API unavailable: [" . @substr($response, 0,100) . "...]"));
+    /**
+     * @return CompanyData[]
+     */
+    public function lookupPartnership(string $id, string $type = IdentifierType::NIP): array
+    {
+        switch ($type) {
+            case IdentifierType::NIP:
+                return $this->lookupPartnershipNIP($id);
+            case IdentifierType::REGON:
+                return $this->lookupPartnershipREGON($id);
+            default:
+                throw new CeidgReaderException(sprintf('Identifier type \'%s\' is not supported', $type));
         }
-        $parsedResponse = @simplexml_load_string($response->GetMigrationData201901Result);
-        if(!$parsedResponse) {
-            return $this->createInvalidCompany($number);
+    }
+
+    private function lookupNIP(string $nip) : Companydata
+    {
+        Validators\PL::checkNip($nip);
+
+        $xml = $this->callApi([
+            'NIP' => [$nip]
+        ]);
+
+        if(!$xml) {
+            return $this->createInvalidCompany(new CompanyIdentifier('vat', $nip));
         }
 
         // Find active company
         $resolvedCompany = false;
         $wpis = false;
-        foreach($parsedResponse->InformacjaOWpisie as $wpis) {
+        foreach($xml->InformacjaOWpisie as $wpis) {
             if($wpis->DaneDodatkowe->Status == 'Aktywny') {
                 $resolvedCompany = $wpis;
             }
@@ -82,26 +93,95 @@ class CeidgReader
 
         // Jeżeli nic nie zwrócono, budujemy wpis invalid
         if(!$resolvedCompany && !$wpis) {
-            return $this->createInvalidCompany($number);
+            return $this->createInvalidCompany(new CompanyIdentifier('vat', $nip));
         } elseif(!$resolvedCompany) {
             $resolvedCompany = $wpis;
         }
 
-        return $this->parseCompanyData($number, $resolvedCompany);
+        return $this->parseCompanyData($resolvedCompany);
     }
 
-    public function lookupPartnership(string $vatid): array
+    private function lookupREGON(string $regon): Companydata
     {
-        $vatid = $this->validateVatid($vatid, 'PL');
-        list($country, $number) = $this->resolveVatid($vatid);
+        $xml = $this->callApi([
+            'REGON' => [$regon],
+        ]);
+
+        if(!$xml) {
+            return $this->createInvalidCompany(new CompanyIdentifier('regon', $regon));
+        }
+
+        // Find active company
+        $resolvedCompany = false;
+        $wpis = false;
+        foreach($xml->InformacjaOWpisie as $wpis) {
+            if($wpis->DaneDodatkowe->Status == 'Aktywny') {
+                $resolvedCompany = $wpis;
+            }
+        }
+
+        // Jeżeli nic nie zwrócono, budujemy wpis invalid
+        if(!$resolvedCompany && !$wpis) {
+            return $this->createInvalidCompany(new CompanyIdentifier('regon', $regon));
+        } elseif(!$resolvedCompany) {
+            $resolvedCompany = $wpis;
+        }
+
+        return $this->parseCompanyData($resolvedCompany);
+    }
+
+    /**
+     * @return CompanyData[]
+     */
+    public function lookupPartnershipNIP(string $nip): array
+    {
+        Validators\PL::checkNip($nip);
+
+        $xml = $this->callApi([
+            'NIP_SC' => [$nip]
+        ]);
+
+        if(!$xml) {
+            return [$this->createInvalidCompany(new CompanyIdentifier('nip', $nip))];
+        }
+
+        $companies = [];
+        foreach($xml->InformacjaOWpisie as $wpis) {
+            $companies[] = $this->parseCompanyData($wpis);
+        }
+
+        return $companies;
+    }
+
+    /**
+     * @return CompanyData[]
+     */
+    public function lookupPartnershipREGON(string $regon): array
+    {
+        $xml = $this->callApi([
+            'REGON_SC' => [$regon]
+        ]);
+
+        if(!$xml) {
+            return [$this->createInvalidCompany(new CompanyIdentifier('regon', $regon))];
+        }
+
+        $companies = [];
+        foreach($xml->InformacjaOWpisie as $wpis) {
+            $companies[] = $this->parseCompanyData($wpis);
+        }
+
+        return $companies;
+    }
+
+    private function callApi(array $parameters): ?\SimpleXMLElement
+    {
+        $parameters = array_merge(['AuthToken' => $this->apikey], $parameters);
 
         try {
-            $response = $this->api->GetMigrationData201901([
-                'AuthToken' => $this->apikey,
-                'NIP_SC' => [$number]
-            ]);
+            $response = $this->api->GetMigrationData201901($parameters);
         } catch(\Throwable $e) {
-            throw new CeidgReaderException('Checking status currently not available');
+            throw new CeidgReaderException('Checking status currently not available', 0, $e);
         }
 
         if(preg_match("/Brak tokenu/i", $response->GetMigrationData201901Result)) {
@@ -113,28 +193,20 @@ class CeidgReader
         }
 
         $parsedResponse = @simplexml_load_string($response->GetMigrationData201901Result);
-        if(!$parsedResponse) {
-            return [$this->createInvalidCompany($number)];
-        }
 
-        $companies = [];
-        foreach($parsedResponse->InformacjaOWpisie as $wpis) {
-            $companies[] = $this->parseCompanyData($number, $wpis);
-        }
-
-        return $companies;
+        return $parsedResponse ?: null;
     }
 
-    private function createInvalidCompany(string $number): CompanyData
+    private function createInvalidCompany(CompanyIdentifier $identifier): CompanyData
     {
         $companyData = new CompanyData;
-        $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
+        $companyData->identifiers[] = $identifier;
         $companyData->valid = false;
 
         return $companyData;
     }
 
-    private function parseCompanyData(string $number, \SimpleXMLElement $xml): CompanyData
+    private function parseCompanyData(\SimpleXMLElement $xml): CompanyData
     {
         $validStatuses = [
             'Aktywny',
@@ -155,7 +227,7 @@ class CeidgReader
         $companyData->name = (string) $xml->DanePodstawowe->Firma;
 
         $companyData->identifiers = [];
-        $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
+        $companyData->identifiers[] = new CompanyIdentifier('vat', (string) $xml->DanePodstawowe->NIP);
         $companyData->identifiers[] = new CompanyIdentifier('regon', (string) $xml->DanePodstawowe->REGON);
         $companyData->startDate = (string)$xml->DaneDodatkowe->DataRozpoczeciaWykonywaniaDzialalnosciGospodarczej;
         $companyData->pkdCodes = mb_split(",", (string) $xml->DaneDodatkowe->KodyPKD);

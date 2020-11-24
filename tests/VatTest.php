@@ -18,19 +18,19 @@ final class VatTest extends TestCase
 
     public function testCorrectNip()
     {
-        $response = self::$reader->lookup('PL7282697380');
+        $response = self::$reader->lookup('7282697380');
         $this->assertTrue($response->valid);
     }
 
     public function testIncorrectNip()
     {
-        $response = self::$reader->lookup('PL5252389922');
+        $response = self::$reader->lookup('5252389922');
         $this->assertFalse($response->valid);
     }
 
     public function testVatIdentifierIsWithoutCountryCode()
     {
-        $response = self::$reader->lookup('PL7282697380');
+        $response = self::$reader->lookup('7282697380');
         $vatIdentifier = array_filter(
             $response->identifiers,
             function (CompanyIdentifier $identifier) {

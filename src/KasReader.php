@@ -2,34 +2,55 @@
 
 namespace Aftermarketpl\CompanyLookup;
 
-use Aftermarketpl\CompanyLookup\Exceptions\KasException;
+use Aftermarketpl\CompanyLookup\Exceptions\KasReaderException;
 use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
 use Aftermarketpl\CompanyLookup\Models\CompanyData;
 use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
 use Aftermarketpl\CompanyLookup\Models\CompanyRepresentative;
+use Aftermarketpl\CompanyLookup\Validators;
 
 /**
  * https://www.gov.pl/web/kas/api-wykazu-podatnikow-vat
  */
-class KasReader
+class KasReader implements Reader
 {
     use Traits\ResolvesVatid;
     use Traits\ValidatesVatid;
 
     private $ws_url = 'https://wl-api.mf.gov.pl';
 
-    public function lookup(string $vatid) : CompanyData
+    public function lookup(string $id, string $type = IdentifierType::NIP): Companydata
     {
-        return $this->lookupByDate($vatid, date('Y-m-d'));
+        return $this->lookupDate($id, date('Y-m-d'), $type);
     }
 
-    public function lookupByDate(string $vatid, string $date) : CompanyData
+    public function lookupDate(string $id, string $date, string $type = IdentifierType::NIP): Companydata
     {
-        $vatid = $this->validateVatid($vatid, 'PL');
-        list($country, $number) = $this->resolveVatid($vatid);
+        switch ($type) {
+            case IdentifierType::NIP:
+                return $this->lookupNipOnDate($id, $date);
+            case IdentifierType::REGON:
+                return $this->lookupRegonOnDate($id, $date);
+            default:
+                throw new KasReaderException(sprintf('Identifier type \'%s\' is not supported', $type));
+        }
+    }
 
-        $params = ["date" => $date];
-        $url = sprintf("%s/api/search/nip/%s?%s", $this->ws_url, $number, http_build_query($params));
+    private function lookupNipOnDate(string $nip, string $date) : CompanyData
+    {
+        Validators\PL::checkNip($nip);
+
+        return $this->callApi(sprintf('/api/search/nip/%s', $nip), ["date" => $date]);
+    }
+
+    private function lookupRegonOnDate(string $regon, string $date) : CompanyData
+    {
+        return $this->callApi(sprintf('/api/search/regon/%s', $regon), ["date" => $date]);
+    }
+
+    private function callApi(string $path, array $params): CompanyData
+    {
+        $url = sprintf("%s%s?%s", $this->ws_url, $path, http_build_query($params));
 
         $curl = curl_init();
         curl_setopt($curl, CURLOPT_URL, $url);
@@ -38,21 +59,21 @@ class KasReader
         $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
 
         if (curl_error($curl)) {
-            throw new KasException(curl_error($curl), curl_errno($curl));
+            throw new KasReaderException(curl_error($curl), curl_errno($curl));
         }
 
         if ($httpCode !== 200) {
-            throw new KasException("Invalid http response code", $httpCode);
+            throw new KasReaderException("Invalid http response code", $httpCode);
         }
 
         $responseData = @json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new KasException("Invalid json response", $httpCode);
+            throw new KasReaderException("Invalid json response", $httpCode);
         }
 
         if (empty($responseData["result"]["subject"])) {
-            throw new KasException("Empty reponse", $httpCode);
+            throw new KasReaderException("Empty reponse", $httpCode);
         }
 
         $result = $responseData["result"]["subject"];
@@ -109,3 +130,4 @@ class KasReader
         return $address;
     }
 }
+

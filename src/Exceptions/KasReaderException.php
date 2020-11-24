@@ -4,7 +4,7 @@ namespace Aftermarketpl\CompanyLookup\Exceptions;
 
 use Exception;
 
-class KasException extends Exception
+class KasReaderException extends Exception
 {
 
 }

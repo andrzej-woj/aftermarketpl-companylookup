@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use Aftermarketpl\CompanyLookup\Env;
+use Aftermarketpl\CompanyLookup\IdentifierType;
 use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
 use PHPUnit\Framework\TestCase;
 
@@ -19,25 +20,52 @@ final class CeidgTest extends TestCase
 
     public function testCorrectNip()
     {
+        $response = self::$reader->lookup('7282697380');
+        $this->assertTrue($response->valid);
+    }
+
+    public function testCorrectRegon()
+    {
+        $response = self::$reader->lookupPartnership('382365180', IdentifierType::REGON);
+        $this->assertCount(2, $response);
+        $this->assertTrue($response[0]->valid);
+        $this->assertTrue($response[1]->valid);
+    }
+
+    public function testInvalidType()
+    {
+        $this->expectExceptionMessage('Identifier type \'KRS\' is not supported');
+        self::$reader->lookup('022434610', IdentifierType::KRS);
+    }
+
+    public function testIncorrectRegon()
+    {
+        $response = self::$reader->lookup('022434610111', IdentifierType::REGON);
+        $this->assertFalse($response->valid);
+    }
+
+    public function testIncorrectNipWithPolishPrefix()
+    {
+        $this->expectExceptionMessage('NIP should have 10 digits, 12 given');
         $response = self::$reader->lookup('PL7282697380');
         $this->assertTrue($response->valid);
     }
 
     public function testIncorrectNip()
     {
-        $response = self::$reader->lookup('PL5252389922');
+        $response = self::$reader->lookup('5252389922');
         $this->assertFalse($response->valid);
     }
 
     public function testMultiCompanies()
     {
-        $response = self::$reader->lookup('PL6422995563');
+        $response = self::$reader->lookup('6422995563');
         $this->assertTrue($response->valid);
     }
 
     public function testPartnetship()
     {
-        $response = self::$reader->lookupPartnership('PL6783053210');
+        $response = self::$reader->lookupPartnership('6783053210');
         foreach ($response as $companyData) {
             $this->assertTrue($companyData->valid);
         }
@@ -45,7 +73,7 @@ final class CeidgTest extends TestCase
 
     public function testVatIdentifierIsWithoutCountryCode()
     {
-        $response = self::$reader->lookup('PL7282697380');
+        $response = self::$reader->lookup('7282697380');
         $vatIdentifier = array_filter(
             $response->identifiers,
             function (CompanyIdentifier $identifier) {
@@ -57,7 +85,7 @@ final class CeidgTest extends TestCase
 
     public function testRepresentatives()
     {
-        $response = self::$reader->lookup('PL7282697380');
+        $response = self::$reader->lookup('7282697380');
         $this->assertCount(1, $response->representatives);
         $this->assertEquals("MICHAŁ", $response->representatives[0]->firstName);
         $this->assertEquals("MAZUR", $response->representatives[0]->lastName);
