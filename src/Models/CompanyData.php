@@ -15,4 +15,5 @@ class CompanyData
     public $emailAddresses = [];
     public $websiteAddresses = [];
     public $pkdCodes = [];
+    public $representatives = [];
 }

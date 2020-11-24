@@ -4,6 +4,7 @@
     "type": "library",
     "require": {
         "php": ">=7.1",
+        "ext-curl": "*",
         "gusapi/gusapi": "dev-master"
     },
     "license": "Common",

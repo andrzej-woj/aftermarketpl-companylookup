@@ -2,12 +2,11 @@
 
 namespace Aftermarketpl\CompanyLookup;
 
-use Throwable;
 use Aftermarketpl\CompanyLookup\Exceptions\CeidgReaderException;
 use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
 use Aftermarketpl\CompanyLookup\Models\CompanyData;
 use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
-
+use Aftermarketpl\CompanyLookup\Models\CompanyRepresentative;
 use SoapClient;
 
 /**
@@ -69,10 +68,7 @@ class CeidgReader
         }
         $parsedResponse = @simplexml_load_string($response->GetMigrationData201901Result);
         if(!$parsedResponse) {
-            $companyData = new CompanyData;
-            $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
-            $companyData->valid = false;
-            return $companyData;            
+            return $this->createInvalidCompany($number);
         }
 
         // Find active company
@@ -86,41 +82,97 @@ class CeidgReader
 
         // Jeżeli nic nie zwrócono, budujemy wpis invalid
         if(!$resolvedCompany && !$wpis) {
-            $companyData = new CompanyData;
-            $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
-            $companyData->valid = false;
-            return $companyData;
+            return $this->createInvalidCompany($number);
         } elseif(!$resolvedCompany) {
             $resolvedCompany = $wpis;
         }
 
+        return $this->parseCompanyData($number, $resolvedCompany);
+    }
+
+    public function lookupPartnership(string $vatid): array
+    {
+        $vatid = $this->validateVatid($vatid, 'PL');
+        list($country, $number) = $this->resolveVatid($vatid);
+
+        try {
+            $response = $this->api->GetMigrationData201901([
+                'AuthToken' => $this->apikey,
+                'NIP_SC' => [$number]
+            ]);
+        } catch(\Throwable $e) {
+            throw new CeidgReaderException('Checking status currently not available');
+        }
+
+        if(preg_match("/Brak tokenu/i", $response->GetMigrationData201901Result)) {
+            throw new CeidgReaderException("Incorrect API KEY CEIDG");
+        }
+
+        if(!isset($response->GetMigrationData201901Result)) {
+            throw new CeidgReaderException(("CEIDG API unavailable: [" . @substr($response, 0,100) . "...]"));
+        }
+
+        $parsedResponse = @simplexml_load_string($response->GetMigrationData201901Result);
+        if(!$parsedResponse) {
+            return [$this->createInvalidCompany($number)];
+        }
+
+        $companies = [];
+        foreach($parsedResponse->InformacjaOWpisie as $wpis) {
+            $companies[] = $this->parseCompanyData($number, $wpis);
+        }
+
+        return $companies;
+    }
+
+    private function createInvalidCompany(string $number): CompanyData
+    {
+        $companyData = new CompanyData;
+        $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
+        $companyData->valid = false;
+
+        return $companyData;
+    }
+
+    private function parseCompanyData(string $number, \SimpleXMLElement $xml): CompanyData
+    {
+        $validStatuses = [
+            'Aktywny',
+            'Działalność jest prowadzona wyłącznie w formie spółki/spółek cywilnych',
+        ];
+
         $companyData = new CompanyData;
 
-        $companyData->mainAddress =  $this->parseAddress($resolvedCompany->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci);
-        $companyData->additionalAddresses[] = $this->parseAddress($resolvedCompany->DaneAdresowe->AdresDoDoreczen);
+        $companyData->mainAddress =  $this->parseAddress($xml->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci);
+        $companyData->additionalAddresses[] = $this->parseAddress($xml->DaneAdresowe->AdresDoDoreczen);
 
-        if($resolvedCompany->DaneDodatkowe->Status == 'Aktywny') {
+        if(in_array((string) $xml->DaneDodatkowe->Status, $validStatuses)) {
             $companyData->valid = true;
         } else {
             $companyData->valid = false;
         }
 
-        $companyData->name = (string) $resolvedCompany->DanePodstawowe->Firma;
+        $companyData->name = (string) $xml->DanePodstawowe->Firma;
 
         $companyData->identifiers = [];
-        $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
-        $companyData->identifiers[] = new CompanyIdentifier('regon', (string) $resolvedCompany->DanePodstawowe->REGON);
-        $companyData->startDate = (string)$resolvedCompany->DaneDodatkowe->DataRozpoczeciaWykonywaniaDzialalnosciGospodarczej;
-        $companyData->pkdCodes = mb_split(",", (string) $resolvedCompany->DaneDodatkowe->KodyPKD);
-        
-        if((string)$resolvedCompany->DaneKontaktowe->Telefon)
-            $companyData->phoneNumbers = [(string)$resolvedCompany->DaneKontaktowe->Telefon];
-        
-        if((string)$resolvedCompany->DaneKontaktowe->AdresPocztyElektronicznej)
-            $companyData->emailAddresses = [(string)$resolvedCompany->DaneKontaktowe->AdresPocztyElektronicznej];
-        
-        if((string)$resolvedCompany->DaneKontaktowe->AdresStronyInternetowej)
-            $companyData->websiteAddresses = [(string)$resolvedCompany->DaneKontaktowe->AdresStronyInternetowej];
+        $companyData->identifiers[] = new CompanyIdentifier('vat', $number);
+        $companyData->identifiers[] = new CompanyIdentifier('regon', (string) $xml->DanePodstawowe->REGON);
+        $companyData->startDate = (string)$xml->DaneDodatkowe->DataRozpoczeciaWykonywaniaDzialalnosciGospodarczej;
+        $companyData->pkdCodes = mb_split(",", (string) $xml->DaneDodatkowe->KodyPKD);
+
+        if((string)$xml->DaneKontaktowe->Telefon)
+            $companyData->phoneNumbers = [(string)$xml->DaneKontaktowe->Telefon];
+
+        if((string)$xml->DaneKontaktowe->AdresPocztyElektronicznej)
+            $companyData->emailAddresses = [(string)$xml->DaneKontaktowe->AdresPocztyElektronicznej];
+
+        if((string)$xml->DaneKontaktowe->AdresStronyInternetowej)
+            $companyData->websiteAddresses = [(string)$xml->DaneKontaktowe->AdresStronyInternetowej];
+
+        $companyData->representatives[] = new CompanyRepresentative(
+            (string) $xml->DanePodstawowe->Imie,
+            (string) $xml->DanePodstawowe->Nazwisko
+        );
 
         return $companyData;
     }
