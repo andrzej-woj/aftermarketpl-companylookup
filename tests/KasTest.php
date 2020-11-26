@@ -71,16 +71,16 @@ final class KasTest extends TestCase
         $this->assertNotEmpty($mainAddress->country);
     }
 
-    public function testVatIdentifierIsWithoutCountryCode()
+    public function testNIPIdentifierIsWithoutCountryCode()
     {
         $response = self::$reader->lookup('9121874990');
-        $vatIdentifier = array_filter(
+        $nipIdentifier = array_filter(
             $response->identifiers,
             function (CompanyIdentifier $identifier) {
-                return $identifier->type == "vat";
+                return $identifier->type == IdentifierType::NIP;
             }
         );
-        $this->assertEquals("9121874990", reset($vatIdentifier)->id);
+        $this->assertEquals("9121874990", reset($nipIdentifier)->id);
     }
 
     public function testRepresentatives()
@@ -94,13 +94,13 @@ final class KasTest extends TestCase
     public function testEmptyKas()
     {
         $response = self::$reader->lookup('7282697380');
-        $vatIdentifier = array_filter(
+        $krsIdentifier = array_filter(
             $response->identifiers,
             function (CompanyIdentifier $identifier) {
-                return $identifier->type == "krs";
+                return $identifier->type == IdentifierType::KRS;
             }
         );
 
-        $this->assertEmpty($vatIdentifier);
+        $this->assertEmpty($krsIdentifier);
     }
 }

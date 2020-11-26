@@ -79,7 +79,7 @@ class CeidgReader implements Reader
         ]);
 
         if(!$xml) {
-            return $this->createInvalidCompany(new CompanyIdentifier('vat', $nip));
+            return $this->createInvalidCompany(new CompanyIdentifier(IdentifierType::NIP, $nip));
         }
 
         // Find active company
@@ -93,7 +93,7 @@ class CeidgReader implements Reader
 
         // Jeżeli nic nie zwrócono, budujemy wpis invalid
         if(!$resolvedCompany && !$wpis) {
-            return $this->createInvalidCompany(new CompanyIdentifier('vat', $nip));
+            return $this->createInvalidCompany(new CompanyIdentifier(IdentifierType::NIP, $nip));
         } elseif(!$resolvedCompany) {
             $resolvedCompany = $wpis;
         }
@@ -108,7 +108,7 @@ class CeidgReader implements Reader
         ]);
 
         if(!$xml) {
-            return $this->createInvalidCompany(new CompanyIdentifier('regon', $regon));
+            return $this->createInvalidCompany(new CompanyIdentifier(IdentifierType::REGON, $regon));
         }
 
         // Find active company
@@ -122,7 +122,7 @@ class CeidgReader implements Reader
 
         // Jeżeli nic nie zwrócono, budujemy wpis invalid
         if(!$resolvedCompany && !$wpis) {
-            return $this->createInvalidCompany(new CompanyIdentifier('regon', $regon));
+            return $this->createInvalidCompany(new CompanyIdentifier(IdentifierType::REGON, $regon));
         } elseif(!$resolvedCompany) {
             $resolvedCompany = $wpis;
         }
@@ -133,7 +133,7 @@ class CeidgReader implements Reader
     /**
      * @return CompanyData[]
      */
-    public function lookupPartnershipNIP(string $nip): array
+    private function lookupPartnershipNIP(string $nip): array
     {
         Validators\PL::checkNip($nip);
 
@@ -142,7 +142,7 @@ class CeidgReader implements Reader
         ]);
 
         if(!$xml) {
-            return [$this->createInvalidCompany(new CompanyIdentifier('nip', $nip))];
+            return [$this->createInvalidCompany(new CompanyIdentifier(IdentifierType::NIP, $nip))];
         }
 
         $companies = [];
@@ -156,14 +156,14 @@ class CeidgReader implements Reader
     /**
      * @return CompanyData[]
      */
-    public function lookupPartnershipREGON(string $regon): array
+    private function lookupPartnershipREGON(string $regon): array
     {
         $xml = $this->callApi([
             'REGON_SC' => [$regon]
         ]);
 
         if(!$xml) {
-            return [$this->createInvalidCompany(new CompanyIdentifier('regon', $regon))];
+            return [$this->createInvalidCompany(new CompanyIdentifier(IdentifierType::REGON, $regon))];
         }
 
         $companies = [];
@@ -227,8 +227,8 @@ class CeidgReader implements Reader
         $companyData->name = (string) $xml->DanePodstawowe->Firma;
 
         $companyData->identifiers = [];
-        $companyData->identifiers[] = new CompanyIdentifier('vat', (string) $xml->DanePodstawowe->NIP);
-        $companyData->identifiers[] = new CompanyIdentifier('regon', (string) $xml->DanePodstawowe->REGON);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::NIP, (string) $xml->DanePodstawowe->NIP);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, (string) $xml->DanePodstawowe->REGON);
         $companyData->startDate = (string)$xml->DaneDodatkowe->DataRozpoczeciaWykonywaniaDzialalnosciGospodarczej;
         $companyData->pkdCodes = mb_split(",", (string) $xml->DaneDodatkowe->KodyPKD);
 

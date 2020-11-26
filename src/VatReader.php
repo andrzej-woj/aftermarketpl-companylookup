@@ -26,7 +26,7 @@ class VatReader implements Reader
     public function lookup(string $nip, string $type = IdentifierType::NIP): Companydata
     {
         if ($type !== IdentifierType::NIP) {
-            throw new VatReaderException('Checking status currently not available');
+            throw new VatReaderException('Invalid identifier type, only NIP is supported');
         }
 
         Validators\PL::checkNip($nip);
@@ -77,7 +77,7 @@ class VatReader implements Reader
         }
 
         $companyData = new CompanyData;
-        $companyData->identifiers[] = new CompanyIdentifier('vat', $request['vatid']);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::NIP, $request['vatid']);
 
         if($response->Kod == 'C') 
         {

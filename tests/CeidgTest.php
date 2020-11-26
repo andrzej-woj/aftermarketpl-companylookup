@@ -71,16 +71,16 @@ final class CeidgTest extends TestCase
         }
     }
 
-    public function testVatIdentifierIsWithoutCountryCode()
+    public function testNIPIdentifierIsWithoutCountryCode()
     {
         $response = self::$reader->lookup('7282697380');
-        $vatIdentifier = array_filter(
+        $nipIdentifier = array_filter(
             $response->identifiers,
             function (CompanyIdentifier $identifier) {
-                return $identifier->type == "vat";
+                return $identifier->type == IdentifierType::NIP;
             }
         );
-        $this->assertEquals("7282697380", reset($vatIdentifier)->id);
+        $this->assertEquals("7282697380", reset($nipIdentifier)->id);
     }
 
     public function testRepresentatives()

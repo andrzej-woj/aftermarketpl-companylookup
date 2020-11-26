@@ -100,10 +100,10 @@ class KasReader implements Reader
         $companyData->startDate = $result["registrationLegalDate"];
 
         $companyData->identifiers = [];
-        $companyData->identifiers[] = new CompanyIdentifier('vat', $result["nip"]);
-        $companyData->identifiers[] = new CompanyIdentifier('regon', $result["regon"]);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::NIP, $result["nip"]);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, $result["regon"]);
         if($result["krs"]) {
-            $companyData->identifiers[] = new CompanyIdentifier('krs', $result["krs"]);
+            $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::KRS, $result["krs"]);
         }
 
         foreach ($result["representatives"] as $representative) {

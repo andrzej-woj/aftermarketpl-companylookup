@@ -96,7 +96,7 @@ class GusReader implements Reader
         
         } catch (NotFoundException $e) {
             $companyData = new CompanyData;
-            $companyData->identifiers[] = new CompanyIdentifier('vat', $nip);
+            $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::NIP, $nip);
             $companyData->valid = false;
             return $companyData;
         }
@@ -118,13 +118,13 @@ class GusReader implements Reader
                 
                 $this->report = $gusReport;
                 $companyData =  $this->mapCompanyData($gusReport);
-                $companyData->identifiers[] = new CompanyIdentifier('krs', $krs);
+                $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::KRS, $krs);
                 return $companyData;
             }
             // inactive, but in results
             if($gusReport) {
                 $this->report = $gusReport;
-                $companyData->identifiers[] = new CompanyIdentifier('krs', $krs);
+                $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::KRS, $krs);
                 return $this->mapCompanyData($gusReport);
             }
 
@@ -133,13 +133,13 @@ class GusReader implements Reader
         
         } catch (NotFoundException $e) {
             $companyData = new CompanyData;
-            $companyData->identifiers[] = new CompanyIdentifier('krs', $krs);
+            $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::KRS, $krs);
             $companyData->valid = false;
             return $companyData;        
         }
 
         $companyData = new CompanyData;
-        $companyData->identifiers[] = new CompanyIdentifier('krs', $krs);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::KRS, $krs);
         $companyData->valid = false;
         return $companyData;         
     }
@@ -150,7 +150,7 @@ class GusReader implements Reader
     private function lookupREGON(string $regon)
     {
         $companyData = new CompanyData;
-        $companyData->identifiers[] = new CompanyIdentifier('regon', $regon);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, $regon);
 
         try {
             $gusReports = $this->api->getByRegon($regon);
@@ -166,7 +166,7 @@ class GusReader implements Reader
             // inactive, but in results
             if($gusReport) {
                 $this->report = $gusReport;
-                $companyData->identifiers[] = new CompanyIdentifier('regon', $regon);
+                $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, $regon);
                 return $this->mapCompanyData($gusReport);
             }
 
@@ -175,13 +175,13 @@ class GusReader implements Reader
         
         } catch (NotFoundException $e) {
             $companyData = new CompanyData;
-            $companyData->identifiers[] = new CompanyIdentifier('regon', $regon);
+            $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, $regon);
             $companyData->valid = false;
             return $companyData;       
         }
 
         $companyData = new CompanyData;
-        $companyData->identifiers[] = new CompanyIdentifier('regon', $regon);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, $regon);
         $companyData->valid = false;
         return $companyData;         
     }
@@ -209,8 +209,8 @@ class GusReader implements Reader
         $companyData->representatives = $this->getRepresentatives($this->report);
 
         $companyData->identifiers = [];
-        $companyData->identifiers[] = new CompanyIdentifier('vat', $gusReport->getNip());
-        $companyData->identifiers[] = new CompanyIdentifier('regon', $gusReport->getRegon());
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::NIP, $gusReport->getNip());
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, $gusReport->getRegon());
         if (!empty($activityReport["praw_numerWRejestrzeEwidencji"])) {
             $companyData->identifiers[] = new CompanyIdentifier(
                 'krs',

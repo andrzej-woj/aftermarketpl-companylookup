@@ -81,7 +81,7 @@ final class GusTest extends TestCase
         $krsIdentifier = array_filter(
             $response->identifiers,
             function (CompanyIdentifier $identifier) {
-                return $identifier->type == "krs";
+                return $identifier->type == IdentifierType::KRS;
             }
         );
         $this->assertEquals("0000513708", reset($krsIdentifier)->id);

@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use Aftermarketpl\CompanyLookup\IdentifierType;
 use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
 use PHPUnit\Framework\TestCase;
 
@@ -28,15 +29,15 @@ final class VatTest extends TestCase
         $this->assertFalse($response->valid);
     }
 
-    public function testVatIdentifierIsWithoutCountryCode()
+    public function testNIPIdentifierIsWithoutCountryCode()
     {
         $response = self::$reader->lookup('7282697380');
-        $vatIdentifier = array_filter(
+        $nipIdentifier = array_filter(
             $response->identifiers,
             function (CompanyIdentifier $identifier) {
-                return $identifier->type == "vat";
+                return $identifier->type == IdentifierType::NIP;
             }
         );
-        $this->assertEquals("7282697380", reset($vatIdentifier)->id);
+        $this->assertEquals("7282697380", reset($nipIdentifier)->id);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Aftermarketpl\CompanyLookup;
 
+use Aftermarketpl\CompanyLookup\Exceptions\VatReaderException;
 use Throwable;
 use Aftermarketpl\CompanyLookup\Exceptions\ViesReaderException;
 use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
@@ -10,7 +11,7 @@ use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
 
 use SoapClient;
 
-class ViesReader
+class ViesReader implements Reader
 {
     use Traits\ResolvesVatid;
     use Traits\ValidatesVatid;
@@ -33,8 +34,12 @@ class ViesReader
 
     /**
      */
-    public function lookup(string $vatid)
+    public function lookup(string $vatid, string $type = IdentifierType::VAT): Companydata
     {
+        if ($type !== IdentifierType::VAT) {
+            throw new VatReaderException('Invalid identifier type, only VAT is supported');
+        }
+
         $vatid = $this->validateVatid($vatid);
 
         list($country, $number) = $this->resolveVatid($vatid);
@@ -52,7 +57,7 @@ class ViesReader
         {
             $companyData = new CompanyData;
             $companyData->valid = false;
-            $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
+            $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::VAT, $vatid);
             return $companyData;
         }
         else
@@ -77,7 +82,7 @@ class ViesReader
             $companyData->valid = true;
             $companyData->name = $response->name;
             
-            $companyData->identifiers[] = new CompanyIdentifier('vat', $vatid);
+            $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::VAT, $vatid);
             $companyData->mainAddress = $companyAddress;
 
             return $companyData;
