@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 use Aftermarketpl\CompanyLookup\Exceptions\ViesReaderException;
+use Aftermarketpl\CompanyLookup\IdentifierType;
+use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
 use Aftermarketpl\CompanyLookup\ViesReader;
 use PHPUnit\Framework\TestCase;
 
@@ -67,5 +69,17 @@ final class ViesTest extends TestCase
         } catch (ViesReaderException $e) {
             $this->addToAssertionCount(1);
         }
+    }
+
+    public function testVATIdentifierIsWithoutCountryCode()
+    {
+        $response = self::$reader->lookup('PL9121875009');
+        $vatIdentifier = array_filter(
+            $response->identifiers,
+            function (CompanyIdentifier $identifier) {
+                return $identifier->type == IdentifierType::VAT;
+            }
+        );
+        $this->assertEquals("PL9121875009", reset($vatIdentifier)->id);
     }
 }

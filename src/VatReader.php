@@ -3,13 +3,12 @@
 namespace Aftermarketpl\CompanyLookup;
 
 use Aftermarketpl\CompanyLookup\Exceptions\VatReaderException;
-use SoapClient;
-
-use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
 use Aftermarketpl\CompanyLookup\Models\CompanyData;
 use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
+use Aftermarketpl\CompanyLookup\Validators;
+use SoapClient;
 
-class VatReader
+class VatReader implements Reader
 {
     use Traits\ResolvesVatid, Traits\ValidatesVatid;
 
@@ -24,38 +23,42 @@ class VatReader
         $this->options = $options;
     }
 
-    /**
-     */
-    public function lookup(string $vatid)
+    public function lookup(string $nip, string $type = IdentifierType::NIP): Companydata
     {
-        $vatid = $this->validateVatid($vatid, 'PL');
-        list($country, $number) = $this->resolveVatid($vatid);
+        if ($type !== IdentifierType::NIP) {
+            throw new VatReaderException('Invalid identifier type, only NIP is supported');
+        }
+
+        Validators\PL::checkNip($nip);
 
         try {
             $api = new SoapClient($this->ws_url);
-            $response = $api->sprawdzNIP($number);
+            $response = $api->sprawdzNIP($nip);
         } catch(\Throwable $e) {
-            throw new VatReaderException('Checking status currently not available');
+            throw new VatReaderException('Checking status currently not available', 0, $e);
         }
 
-        return $this->handleResponse($response, ['vatid' => $number, 'date' => strftime("%Y-%m-%d", time())]);
+        return $this->handleResponse($response, ['vatid' => $nip, 'date' => strftime("%Y-%m-%d", time())]);
     }
 
     /**
      */
-    public function lookupDate(string $vatid, string $date)
+    public function lookupDate(string $nip, string $date, string $type = IdentifierType::NIP)
     {
-        $vatid = $this->validateVatid($vatid, 'PL');
-        list($country, $number) = $this->resolveVatid($vatid);
-
-        try {
-            $api = new SoapClient($this->ws_url);
-            $response = $api->sprawdzNIPNaDzien($vatid, $date);
-        } catch(\Throwable $e) {
+        if ($type !== IdentifierType::NIP) {
             throw new VatReaderException('Checking status currently not available');
         }
 
-        return $this->handleResponse($response, ['vatid' => $number, 'date' => $date]);
+        Validators\PL::checkNip($nip);
+
+        try {
+            $api = new SoapClient($this->ws_url);
+            $response = $api->sprawdzNIPNaDzien($nip, $date);
+        } catch(\Throwable $e) {
+            throw new VatReaderException('Checking status currently not available', 0, $e);
+        }
+
+        return $this->handleResponse($response, ['vatid' => $nip, 'date' => $date]);
     }
 
     /**
@@ -74,7 +77,7 @@ class VatReader
         }
 
         $companyData = new CompanyData;
-        $companyData->identifiers[] = new CompanyIdentifier('vat', $request['vatid']);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::NIP, $request['vatid']);
 
         if($response->Kod == 'C') 
         {

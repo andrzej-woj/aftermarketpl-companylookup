@@ -15,6 +15,7 @@ class PL
         if(strlen($value) != 10 && strlen($value) != 12)
             throw new ValidatorException("Incorrect value length");
 
+        $country = "";
         if(strlen($value) == 12)
         {
             $country = substr($value, 0, 2);
@@ -23,6 +24,17 @@ class PL
 
             $value = substr($value, 2);
         }
+
+        self::checkNip($value);
+
+        return $country.$value;
+    }
+
+    public static function checkNip(string $value): void
+    {
+        if(strlen($value) != 10)
+            throw new ValidatorException(sprintf("NIP should have 10 digits, %d given", strlen($value)));
+
         $arrSteps = array(6, 5, 7, 2, 3, 4, 5, 6, 7);
         $intSum=0;
         for ($i = 0; $i < 9; $i++)
@@ -34,8 +46,6 @@ class PL
         $intControlNr=($int == 10)?0:$int;
 
         if ($intControlNr != $value[9])
-            throw new ValidatorException("Incorrect self sign value");
-
-        return $country.$value;
+            throw new ValidatorException("Incorrect NIP self sign value");
     }
 }
