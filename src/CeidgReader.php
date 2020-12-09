@@ -186,7 +186,7 @@ class CeidgReader
         $companyAddress->city = (string) $address->Miejscowosc;
 
         if(!empty($address->Lokal))
-            $companyAddress->address = sprintf("%s %s/%s", $address->Ulica, $address->Budynek, $address->Lokal);
+            $companyAddress->address = sprintf("%s %s m. %s", $address->Ulica, $address->Budynek, $address->Lokal);
         else
             $companyAddress->address = sprintf("%s %s", $address->Ulica, $address->Budynek);
 
