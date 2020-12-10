@@ -256,6 +256,12 @@ class CeidgReader implements Reader
         $companyAddress->postalCode = (string) $address->KodPocztowy;
         $companyAddress->address = (string) $address->Ulica;
         $companyAddress->city = (string) $address->Miejscowosc;
+
+        if(!empty($address->Lokal))
+            $companyAddress->address = sprintf("%s %s m. %s", $address->Ulica, $address->Budynek, $address->Lokal);
+        else
+            $companyAddress->address = sprintf("%s %s", $address->Ulica, $address->Budynek);
+
         return $companyAddress;
     }
 }
