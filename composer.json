@@ -8,11 +8,11 @@
         "ext-simplexml": "*",
         "gusapi/gusapi": "dev-master"
     },
-    "license": "Common",
+    "license": "Apache-2.0",
     "authors": [
         {
             "name": "Aftermarket.pl",
-            "email": "p.sosnicki@aftermarket.pl"
+            "email": "kontakt@aftermarket.pl"
         }
     ],
     "autoload": {
