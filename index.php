@@ -5,7 +5,8 @@ use Aftermarketpl\CompanyLookup\Env;
 
 $vies = new Aftermarketpl\CompanyLookup\ViesReader();
 $vat =  new Aftermarketpl\CompanyLookup\VatReader();
-$ceidg = new Aftermarketpl\CompanyLookup\CeidgReader(Env::$ceidgapikey);
-$gus = new Aftermarketpl\CompanyLookup\GusReader(Env::$gusapikey);
+//$ceidg = new Aftermarketpl\CompanyLookup\CeidgReader(Env::$ceidgapikey);
+//$gus = new Aftermarketpl\CompanyLookup\GusReader(Env::$gusapikey);
+$kas =  new Aftermarketpl\CompanyLookup\KasReader();
 
-var_dump($gus->lookup('6422995563'));
+var_dump($kas->lookup('7393600768'));
