@@ -85,9 +85,17 @@ final class CeidgTest extends TestCase
 
     public function testRepresentatives()
     {
-        $response = self::$reader->lookup('7282697380');
+        $response = self::$reader->lookup('5990200923');
         $this->assertCount(1, $response->representatives);
-        $this->assertEquals("MICHAŁ", $response->representatives[0]->firstName);
-        $this->assertEquals("MAZUR", $response->representatives[0]->lastName);
+        $this->assertEquals("Andrzej", $response->representatives[0]->firstName);
+        $this->assertEquals(null, $response->representatives[0]->middleName);
+        $this->assertEquals("Kubzdyl", $response->representatives[0]->lastName);
+    }
+
+    public function testWebsiteAddress(): void
+    {
+        $response = self::$reader->lookup('8381841171');
+        $this->assertTrue($response->valid);
+        $this->assertEquals(['alfabeta.com.pl'], $response->websiteAddresses);
     }
 }

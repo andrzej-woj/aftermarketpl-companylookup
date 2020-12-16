@@ -118,13 +118,11 @@ class GusReader implements Reader
                 
                 $this->report = $gusReport;
                 $companyData =  $this->mapCompanyData($gusReport);
-                $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::KRS, $krs);
                 return $companyData;
             }
             // inactive, but in results
             if($gusReport) {
                 $this->report = $gusReport;
-                $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::KRS, $krs);
                 return $this->mapCompanyData($gusReport);
             }
 
@@ -192,7 +190,7 @@ class GusReader implements Reader
         $companyAddress = new CompanyAddress;
         $companyAddress->country = 'PL';
         $companyAddress->postalCode = (string) $gusReport->getZipCode();
-        $companyAddress->address = (string) $gusReport->getStreet().' '.$gusReport->getPropertyNumber() . ( $gusReport->getApartmentNumber() ? '/'.$gusReport->getApartmentNumber() : '');
+        $companyAddress->address = (string) (empty($gusReport->getStreet()) ? $gusReport->getCity() : $gusReport->getStreet()).' '.$gusReport->getPropertyNumber() . ( $gusReport->getApartmentNumber() ? '/'.$gusReport->getApartmentNumber() : '');
         $companyAddress->city = (string) $gusReport->getCity();
 
         $companyData = new CompanyData;
@@ -202,25 +200,34 @@ class GusReader implements Reader
             $companyData->valid = true;
 
         $companyData->name = (string) $gusReport->getName();
-        $companyData->startDate = $activityReport[0]['fiz_dataRozpoczeciaDzialalnosci']
-            ?? $activityReport[0]['praw_dataRozpoczeciaDzialalnosci']
-            ?? null;
+        $companyData->startDate = $this->getField($activityReport[0], 'dataRozpoczeciaDzialalnosci');
 
         $companyData->representatives = $this->getRepresentatives($this->report);
 
         $companyData->identifiers = [];
         $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::NIP, $gusReport->getNip());
         $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, $gusReport->getRegon());
-        if (!empty($activityReport["praw_numerWRejestrzeEwidencji"])) {
-            $companyData->identifiers[] = new CompanyIdentifier(
-                'krs',
-                $activityReport["praw_numerWRejestrzeEwidencji"]
-            );
+
+        $krsIdentifier = $this->getField($activityReport[0], 'numerWRejestrzeEwidencji');
+        if ($krsIdentifier) {
+            $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::KRS, $krsIdentifier);
+        }
+        $websiteAddress = $this->getField($activityReport[0], 'adresStronyinternetowej');
+        if ($websiteAddress) {
+            $companyData->websiteAddresses[] = $websiteAddress;
+        }
+        $emailAddress = $this->getField($activityReport[0], 'adresEmail');
+        if ($emailAddress) {
+            $companyData->emailAddresses[] = $emailAddress;
+        }
+        $faxNumber = $this->getField($activityReport[0], 'numerFaksu');
+        if ($faxNumber) {
+            $companyData->faxNumbers[] = $faxNumber;
         }
 
         $companyData->mainAddress = $companyAddress;
 
-        $companyData->pkdCodes = array_map(function($v){
+        $companyData->pkdCodes = array_map(function($v) {
             if(isset($v['fiz_pkd_Kod']))
                 return $v['fiz_pkd_Kod'];
             if(isset($v['praw_pkdKod']))
@@ -269,6 +276,9 @@ class GusReader implements Reader
                     case 3:
                         $reportType = ReportTypes::REPORT_ACTIVITY_PHYSIC_OTHER_PUBLIC;
                         break;
+                    case 4:
+                        $reportType = ReportTypes::REPORT_ACTIVITY_LOCAL_PHYSIC_WKR_PUBLIC;
+                        break;
                     default:
                         throw new GusReaderException("Invalid SiloId");
                 }
@@ -293,7 +303,7 @@ class GusReader implements Reader
                     continue;
                 }
 
-                $new = new CompanyRepresentative($personReport["fiz_imie1"], $personReport["fiz_nazwisko"]);
+                $new = new CompanyRepresentative($personReport["fiz_imie1"], $personReport["fiz_imie2"], $personReport["fiz_nazwisko"]);
                 $same = array_filter($representatives, function (CompanyRepresentative $existing) use ($new) {
                     return $existing->equals($new);
                 });
@@ -317,6 +327,7 @@ class GusReader implements Reader
 
                 $new = new CompanyRepresentative(
                     $personReport["wspolsc_imiePierwsze"],
+                    $personReport["wspolsc_imieDrugie"],
                     $personReport["wspolsc_nazwisko"]
                 );
 
@@ -327,5 +338,20 @@ class GusReader implements Reader
         }
 
         throw new GusReaderException("Invalid SiloId");
+    }
+
+    private function getField(array $data, string $field): ?string
+    {
+        $name = sprintf('praw_%s', $field);
+        if (!empty($data[$name])) {
+            return $data[$name];
+        }
+
+        $name = sprintf('fiz_%s', $field);
+        if (!empty($data[$name])) {
+            return $data[$name];
+        }
+
+        return null;
     }
 }

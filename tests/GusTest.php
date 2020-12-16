@@ -103,10 +103,11 @@ final class GusTest extends TestCase
 
     public function testRepresentatives()
     {
-        $response = self::$reader->lookup('7282697380', IdentifierType::NIP);
+        $response = self::$reader->lookup('5990200923', IdentifierType::NIP);
         $this->assertCount(1, $response->representatives);
-        $this->assertEquals("MICHAŁ", $response->representatives[0]->firstName);
-        $this->assertEquals("MAZUR", $response->representatives[0]->lastName);
+        $this->assertEquals("ANDRZEJ", $response->representatives[0]->firstName);
+        $this->assertEquals("JAN", $response->representatives[0]->middleName);
+        $this->assertEquals("KUBZDYL", $response->representatives[0]->lastName);
     }
 
     public function testOrganizationRepresentatives()
@@ -114,8 +115,51 @@ final class GusTest extends TestCase
         $response = self::$reader->lookup('7252285833', IdentifierType::NIP);
         $this->assertCount(2, $response->representatives);
         $this->assertEquals("MICHAŁ", $response->representatives[0]->firstName);
+        $this->assertEquals("ANDRZEJ", $response->representatives[0]->middleName);
         $this->assertEquals("MAZUR", $response->representatives[0]->lastName);
         $this->assertEquals("KLAUDIA", $response->representatives[1]->firstName);
+        $this->assertEquals("IGA", $response->representatives[1]->middleName);
         $this->assertEquals("GORZKOWSKA", $response->representatives[1]->lastName);
+    }
+
+    public function testOrganizationKRS(): void
+    {
+        $response = self::$reader->lookup('7231629144');
+        $this->assertTrue($response->valid);
+        $krsIdentifier = array_filter(
+            $response->identifiers,
+            function (CompanyIdentifier $identifier) {
+                return $identifier->type == IdentifierType::KRS;
+            }
+        );
+        $this->assertEquals("0000468907", reset($krsIdentifier)->id);
+    }
+
+    public function testWebsiteAddress(): void
+    {
+        $response = self::$reader->lookup('7231629144');
+        $this->assertTrue($response->valid);
+        $this->assertEquals(['wwww.coder-dojo.pl'], $response->websiteAddresses);
+        $this->assertEquals(['dojo@coder-dojo.pl'], $response->emailAddresses);
+    }
+
+    public function testEmptyStreetAddress(): void
+    {
+        $response = self::$reader->lookup('8361775092');
+        $mainAddress = $response->mainAddress;
+        $this->assertNotEmpty($mainAddress);
+        $this->assertEquals('Miedniewice 167', $mainAddress->address);
+    }
+
+    public function testDeleted(): void
+    {
+        $response = self::$reader->lookup('9590824065');
+        $this->assertFalse($response->valid);
+    }
+
+    public function testFax(): void
+    {
+        $response = self::$reader->lookup('7542935038');
+        $this->assertEquals(['774744056'], $response->faxNumbers);
     }
 }

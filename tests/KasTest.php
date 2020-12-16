@@ -27,7 +27,6 @@ final class KasTest extends TestCase
         self::$reader->lookup('7282697380', IdentifierType::KRS);
     }
 
-
     public function testCorrectNipByDate()
     {
         $response = self::$reader->lookupDate(
@@ -88,6 +87,7 @@ final class KasTest extends TestCase
         $response = self::$reader->lookup('9121874990');
         $this->assertCount(1, $response->representatives);
         $this->assertEquals("WŁADYSŁAWA", $response->representatives[0]->firstName);
+        $this->assertEquals(null, $response->representatives[0]->middleName);
         $this->assertEquals("CYBULAK", $response->representatives[0]->lastName);
     }
 

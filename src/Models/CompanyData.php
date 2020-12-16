@@ -12,6 +12,7 @@ class CompanyData
     public $mainAddress;
     public $additionalAddresses = [];
     public $phoneNumbers = [];
+    public $faxNumbers = [];
     public $emailAddresses = [];
     public $websiteAddresses = [];
     public $pkdCodes = [];

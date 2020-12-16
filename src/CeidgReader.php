@@ -235,6 +235,9 @@ class CeidgReader implements Reader
         if((string)$xml->DaneKontaktowe->Telefon)
             $companyData->phoneNumbers = [(string)$xml->DaneKontaktowe->Telefon];
 
+        if((string)$xml->DaneKontaktowe->Faks)
+            $companyData->faxNumbers = [(string)$xml->DaneKontaktowe->Faks];
+
         if((string)$xml->DaneKontaktowe->AdresPocztyElektronicznej)
             $companyData->emailAddresses = [(string)$xml->DaneKontaktowe->AdresPocztyElektronicznej];
 
@@ -243,6 +246,7 @@ class CeidgReader implements Reader
 
         $companyData->representatives[] = new CompanyRepresentative(
             (string) $xml->DanePodstawowe->Imie,
+            null,
             (string) $xml->DanePodstawowe->Nazwisko
         );
 

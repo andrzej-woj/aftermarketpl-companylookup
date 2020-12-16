@@ -109,6 +109,7 @@ class KasReader implements Reader
         foreach ($result["representatives"] as $representative) {
             $companyData->representatives[] = new CompanyRepresentative(
                 (string) $representative["firstName"],
+                null,
                 (string) $representative["lastName"]
             );
         }
