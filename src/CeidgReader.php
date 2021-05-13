@@ -70,6 +70,43 @@ class CeidgReader implements Reader
         }
     }
 
+    /**
+     * @return CompanyData[]
+     */
+    public function search(array $parameters): array
+    {
+        $parameters = array_filter($parameters);
+        if (empty($parameters)) {
+            throw new CeidgReaderException('Empty search parameters');
+        }
+
+        $supportedParameters = ['name'];
+
+        $unknownParameters = array_diff(array_keys($parameters), $supportedParameters);
+        if (!empty($unknownParameters)) {
+            throw new CeidgReaderException(sprintf('Unsupported paremeters: %s, supported are: %s', implode(',', $unknownParameters), implode(',', $supportedParameters)));
+        }
+
+        $apiCallParameters = [];
+        if (!empty($parameters['name'])) {
+            $apiCallParameters['Name'] = [$parameters['name']];
+        }
+
+        $xml = $this->callApi($apiCallParameters);
+        if(!$xml) {
+            $companyData = new CompanyData;
+            $companyData->valid = false;
+            return [$companyData];
+        }
+
+        $companies = [];
+        foreach($xml->InformacjaOWpisie as $wpis) {
+            $companies[] = $this->parseCompanyData($wpis);
+        }
+
+        return $companies;
+    }
+
     private function lookupNIP(string $nip) : Companydata
     {
         Validators\PL::checkNip($nip);
