@@ -98,4 +98,12 @@ final class CeidgTest extends TestCase
         $this->assertTrue($response->valid);
         $this->assertEquals(['alfabeta.com.pl'], $response->websiteAddresses);
     }
+
+    public function testSearchByName(): void
+    {
+        $response = self::$reader->search(['name' => 'SKYEUROPE MICHAŁ MAZUR']);
+        $this->assertCount(1, $response);
+        $this->assertTrue($response[0]->valid);
+        $this->assertEquals($response[0]->identifiers[0]->id, '7282697380');
+    }
 }
