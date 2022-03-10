@@ -38,7 +38,7 @@ class VatReader implements Reader
             throw new VatReaderException('Checking status currently not available', 0, $e);
         }
 
-        return $this->handleResponse($response, ['vatid' => $nip, 'date' => strftime("%Y-%m-%d", time())]);
+        return $this->handleResponse($response, ['vatid' => $nip, 'date' => date("Y-m-d")]);
     }
 
     /**
