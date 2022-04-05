@@ -3,7 +3,6 @@
 namespace Aftermarketpl\CompanyLookup;
 
 use Aftermarketpl\CompanyLookup\Exceptions\CeidgReaderException;
-use Aftermarketpl\CompanyLookup\Exceptions\KasReaderException;
 use Aftermarketpl\CompanyLookup\Models\CompanyAddress;
 use Aftermarketpl\CompanyLookup\Models\CompanyData;
 use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
@@ -86,8 +85,11 @@ class CeidgReader implements Reader
             return [$companyData];
         }
 
+        $ids = array_map(function($entry) { return $entry['id']; }, $json['firmy']);
+        $companiesData = $this->callApi('/firma/', ['ids' => $ids]);
+
         $companies = [];
-        foreach($json['firmy'] as $wpis) {
+        foreach($companiesData['firma'] as $wpis) {
             $companies[] = $this->parseCompanyData($wpis);
         }
 
@@ -98,7 +100,7 @@ class CeidgReader implements Reader
     {
         Validators\PL::checkNip($nip);
 
-        $json = $this->callApi('/firmy', [
+        $json = $this->callApi('/firma', [
             'nip' => $nip,
         ]);
 
@@ -109,7 +111,7 @@ class CeidgReader implements Reader
         // Find active company
         $resolvedCompany = false;
         $wpis = false;
-        foreach($json['firmy'] as $wpis) {
+        foreach($json['firma'] as $wpis) {
             if($wpis['status'] == 'AKTYWNY') {
                 $resolvedCompany = $wpis;
             }
@@ -122,14 +124,12 @@ class CeidgReader implements Reader
             $resolvedCompany = $wpis;
         }
 
-        $companyData = $this->callApi('/firma/' . $resolvedCompany['id'], []);
-
-        return $this->parseCompanyData($companyData['firma'][0]);
+        return $this->parseCompanyData($resolvedCompany);
     }
 
     private function lookupREGON(string $regon): Companydata
     {
-        $json = $this->callApi('/firmy', [
+        $json = $this->callApi('/firma', [
             'regon' => $regon,
         ]);
 
@@ -140,7 +140,7 @@ class CeidgReader implements Reader
         // Find active company
         $resolvedCompany = false;
         $wpis = false;
-        foreach($json['firmy'] as $wpis) {
+        foreach($json['firma'] as $wpis) {
             if($wpis['status'] == 'AKTYWNY') {
                 $resolvedCompany = $wpis;
             }
@@ -153,9 +153,7 @@ class CeidgReader implements Reader
             $resolvedCompany = $wpis;
         }
 
-        $companyData = $this->callApi('/firma/' . $resolvedCompany['id'], []);
-
-        return $this->parseCompanyData($companyData['firma'][0]);
+        return $this->parseCompanyData($resolvedCompany);
     }
 
     /**
@@ -173,10 +171,12 @@ class CeidgReader implements Reader
             return [$this->createInvalidCompany(new CompanyIdentifier(IdentifierType::NIP, $nip))];
         }
 
+        $ids = array_map(function($entry) { return $entry['id']; }, $json['firmy']);
+        $companiesData = $this->callApi('/firma/', ['ids' => $ids]);
+
         $companies = [];
-        foreach($json['firmy'] as $wpis) {
-            $companyData = $this->callApi('/firma/' . $wpis['id'], []);
-            $companies[] = $this->parseCompanyData($companyData['firma'][0]);
+        foreach($companiesData['firma'] as $wpis) {
+            $companies[] = $this->parseCompanyData($wpis);
         }
 
         return $companies;
@@ -195,10 +195,12 @@ class CeidgReader implements Reader
             return [$this->createInvalidCompany(new CompanyIdentifier(IdentifierType::REGON, $regon))];
         }
 
+        $ids = array_map(function($entry) { return $entry['id']; }, $json['firmy']);
+        $companiesData = $this->callApi('/firma/', ['ids' => $ids]);
+
         $companies = [];
-        foreach($json['firmy'] as $wpis) {
-            $companyData = $this->callApi('/firma/' . $wpis['id'], []);
-            $companies[] = $this->parseCompanyData($companyData['firma'][0]);
+        foreach($companiesData['firma'] as $wpis) {
+            $companies[] = $this->parseCompanyData($wpis);
         }
 
         return $companies;
@@ -302,7 +304,7 @@ class CeidgReader implements Reader
         else if(!empty($address['ulica']))
             $companyAddress->address = sprintf("%s %s", $address['ulica'], $address['budynek']);
         else
-            $companyAddress->address = sprintf("%s", $address['budynek']);
+            $companyAddress->address = sprintf("%s %s", $address['miasto'], $address['budynek']);
 
         return $companyAddress;
     }
