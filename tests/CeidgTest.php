@@ -26,6 +26,12 @@ final class CeidgTest extends TestCase
 
     public function testCorrectRegon()
     {
+        $response = self::$reader->lookup('100859430', IdentifierType::REGON);
+        $this->assertTrue($response->valid);
+    }
+
+    public function testCorrectPartnershipRegon()
+    {
         $response = self::$reader->lookupPartnership('382365180', IdentifierType::REGON);
         $this->assertCount(2, $response);
         $this->assertTrue($response[0]->valid);
@@ -63,7 +69,7 @@ final class CeidgTest extends TestCase
         $this->assertTrue($response->valid);
     }
 
-    public function testPartnetship()
+    public function testPartnership()
     {
         $response = self::$reader->lookupPartnership('6783053210');
         foreach ($response as $companyData) {
