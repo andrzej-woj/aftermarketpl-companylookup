@@ -93,7 +93,9 @@ class Address
                 $address = join(" ", $lines);
                 break;
             case "HU": //Hungary
-                preg_match("/^(?<zip>$zipRegex)\s(?<city>.*?)\s(?<addr>.*)$/", array_pop($lines), $matches);
+                $str = array_pop($lines);
+                if(!preg_match("/^(?<zip>$zipRegex)\s(?<city>.*?)\s(?<addr>.*)$/", $str, $matches))
+                    preg_match("/^(?<addr>.*)\s(?<zip>$zipRegex)\s(?<city>.*?)$/", $str, $matches);
                 $zip = $matches["zip"];
                 $city = $matches["city"];
                 $lines[] = $matches["addr"];
