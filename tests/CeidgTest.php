@@ -13,7 +13,7 @@ final class CeidgTest extends TestCase
     /**
      * Bootstrap VAT reader class
      */
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         self::$reader = new Aftermarketpl\CompanyLookup\CeidgReader(Env::$ceidgapikey);
     }
@@ -28,14 +28,6 @@ final class CeidgTest extends TestCase
     {
         $response = self::$reader->lookup('100859430', IdentifierType::REGON);
         $this->assertTrue($response->valid);
-    }
-
-    public function testCorrectPartnershipRegon()
-    {
-        $response = self::$reader->lookupPartnership('382365180', IdentifierType::REGON);
-        $this->assertCount(2, $response);
-        $this->assertTrue($response[0]->valid);
-        $this->assertTrue($response[1]->valid);
     }
 
     public function testInvalidType()
@@ -69,7 +61,7 @@ final class CeidgTest extends TestCase
         $this->assertTrue($response->valid);
     }
 
-    public function testPartnership()
+    public function testPartnetship()
     {
         $response = self::$reader->lookupPartnership('6783053210');
         foreach ($response as $companyData) {

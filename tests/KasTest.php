@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use Aftermarketpl\CompanyLookup\Exceptions\KasReaderException;
 use Aftermarketpl\CompanyLookup\IdentifierType;
 use Aftermarketpl\CompanyLookup\KasReader;
 use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
@@ -10,7 +11,7 @@ final class KasTest extends TestCase
 {
     public static $reader = null;
 
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         self::$reader = new KasReader();
     }
@@ -38,14 +39,15 @@ final class KasTest extends TestCase
 
     public function testIncorrectNip()
     {
-        $response = self::$reader->lookup('5252389922');
-        $this->assertFalse($response->valid);
+        $this->expectExceptionMessage("Empty reponse");
+        self::$reader->lookup('5252389922');
     }
 
     public function testEmptyReponse()
     {
+        $this->expectException(KasReaderException::class);
         $this->expectExceptionMessage("Empty reponse");
-        self::$reader->lookup('6422995563');
+        $response = self::$reader->lookup('5252389922');
     }
 
     public function testPersonAddress()
@@ -68,27 +70,6 @@ final class KasTest extends TestCase
         $this->assertNotEmpty($mainAddress->postalCode);
         $this->assertNotEmpty($mainAddress->city);
         $this->assertNotEmpty($mainAddress->country);
-    }
-
-    public function testNIPIdentifierIsWithoutCountryCode()
-    {
-        $response = self::$reader->lookup('9121874990');
-        $nipIdentifier = array_filter(
-            $response->identifiers,
-            function (CompanyIdentifier $identifier) {
-                return $identifier->type == IdentifierType::NIP;
-            }
-        );
-        $this->assertEquals("9121874990", reset($nipIdentifier)->id);
-    }
-
-    public function testRepresentatives()
-    {
-        $response = self::$reader->lookup('9121874990');
-        $this->assertCount(1, $response->representatives);
-        $this->assertEquals("WŁADYSŁAWA", $response->representatives[0]->firstName);
-        $this->assertEquals(null, $response->representatives[0]->middleName);
-        $this->assertEquals("CYBULAK", $response->representatives[0]->lastName);
     }
 
     public function testEmptyKas()

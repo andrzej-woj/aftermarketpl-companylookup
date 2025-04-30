@@ -12,7 +12,7 @@ final class VatTest extends TestCase
     /**
      * Bootstrap  reader class
      */
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         self::$reader = new Aftermarketpl\CompanyLookup\VatReader();
     }

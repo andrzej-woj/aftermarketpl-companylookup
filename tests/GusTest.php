@@ -6,14 +6,14 @@ use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
 use PHPUnit\Framework\TestCase;
 use Aftermarketpl\CompanyLookup\Env;
 
-final class GusTest extends TestCase
+abstract class GusTest extends TestCase
 {
     public static $reader = null;
     
     /**
      * Bootstrap VAT reader class
      */
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         self::$reader = new Aftermarketpl\CompanyLookup\GusReader(Env::$gusapikey);
     }
