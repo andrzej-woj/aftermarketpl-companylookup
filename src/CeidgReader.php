@@ -294,14 +294,18 @@ class CeidgReader implements Reader
     {
         $companyAddress = new CompanyAddress;
         $companyAddress->country = 'PL';
-        $companyAddress->postalCode = (string) $address->KodPocztowy;
-        $companyAddress->address = (string) $address->Ulica;
-        $companyAddress->city = (string) $address->Miejscowosc;
+        $companyAddress->postalCode = (string) ($address['kod'] ?? "");
+        $companyAddress->address = (string) ($address['ulica'] ?? "");
+        $companyAddress->city = (string) ($address['miasto'] ?? "");
 
-        if(!empty($address->Lokal))
-            $companyAddress->address = sprintf("%s %s m. %s", $address->Ulica, $address->Budynek, $address->Lokal);
-        else
-            $companyAddress->address = sprintf("%s %s", $address->Ulica, $address->Budynek);
+        if(!empty($address['ulica']) && !empty($address['budynek']) && !empty($address['lokal']))
+            $companyAddress->address = sprintf("%s %s m. %s", $address['ulica'], $address['budynek'], $address['lokal']);
+        else if(!empty($address['ulica']) && !empty($address['budynek']))
+            $companyAddress->address = sprintf("%s %s", $address['ulica'], $address['budynek']);
+        else if(!empty($address['budynek']) && !empty($address['lokal']))
+            $companyAddress->address = sprintf("%s %s m. %s", $address['miasto'], $address['budynek'], $address['lokal']);
+        else if(!empty($address['budynek']))
+            $companyAddress->address = sprintf("%s %s", $address['miasto'], $address['budynek']);
 
         return $companyAddress;
     }
