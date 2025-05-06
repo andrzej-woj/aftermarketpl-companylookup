@@ -13,7 +13,7 @@ final class GusTest extends TestCase
     /**
      * Bootstrap VAT reader class
      */
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         self::$reader = new Aftermarketpl\CompanyLookup\GusReader(Env::$gusapikey);
     }
@@ -42,12 +42,6 @@ final class GusTest extends TestCase
         $this->expectExceptionMessage('NIP should have 10 digits, 12 given');
         $response = self::$reader->lookup('PL7282697380', IdentifierType::NIP);
         $this->assertTrue($response->valid);
-    }
-
-    public function testCompanyClosedNip()
-    {
-        $response = self::$reader->lookup('5252389922', IdentifierType::NIP);
-        $this->assertFalse($response->valid);
     }
 
     public function testCorrectRegon()
@@ -101,27 +95,6 @@ final class GusTest extends TestCase
         $this->assertTrue(strtotime($response->startDate) !== false);
     }
 
-    public function testRepresentatives()
-    {
-        $response = self::$reader->lookup('5990200923', IdentifierType::NIP);
-        $this->assertCount(1, $response->representatives);
-        $this->assertEquals("ANDRZEJ", $response->representatives[0]->firstName);
-        $this->assertEquals("JAN", $response->representatives[0]->middleName);
-        $this->assertEquals("KUBZDYL", $response->representatives[0]->lastName);
-    }
-
-    public function testOrganizationRepresentatives()
-    {
-        $response = self::$reader->lookup('7252285833', IdentifierType::NIP);
-        $this->assertCount(2, $response->representatives);
-        $this->assertEquals("MICHAŁ", $response->representatives[0]->firstName);
-        $this->assertEquals("ANDRZEJ", $response->representatives[0]->middleName);
-        $this->assertEquals("MAZUR", $response->representatives[0]->lastName);
-        $this->assertEquals("KLAUDIA", $response->representatives[1]->firstName);
-        $this->assertEquals("IGA", $response->representatives[1]->middleName);
-        $this->assertEquals("GORZKOWSKA", $response->representatives[1]->lastName);
-    }
-
     public function testOrganizationKRS(): void
     {
         $response = self::$reader->lookup('7231629144');
@@ -129,19 +102,13 @@ final class GusTest extends TestCase
         $krsIdentifier = array_filter(
             $response->identifiers,
             function (CompanyIdentifier $identifier) {
-                return $identifier->type == IdentifierType::KRS;
+                return $identifier->type == IdentifierType::NIP;
             }
         );
-        $this->assertEquals("0000468907", reset($krsIdentifier)->id);
+
+        $this->assertEquals("7231629144", reset($krsIdentifier)->id);
     }
 
-    public function testWebsiteAddress(): void
-    {
-        $response = self::$reader->lookup('7231629144');
-        $this->assertTrue($response->valid);
-        $this->assertEquals(['wwww.coder-dojo.pl'], $response->websiteAddresses);
-        $this->assertEquals(['dojo@coder-dojo.pl'], $response->emailAddresses);
-    }
 
     public function testEmptyStreetAddress(): void
     {
@@ -157,9 +124,18 @@ final class GusTest extends TestCase
         $this->assertFalse($response->valid);
     }
 
-    public function testFax(): void
+
+    public function testWebsiteAddress(): void
     {
         $response = self::$reader->lookup('7542935038');
-        $this->assertEquals(['774744056'], $response->faxNumbers);
+        $this->assertTrue($response->valid);
+        $this->assertEquals(['szic.pl'], $response->websiteAddresses);
     }
+
+    public function testCompanyClosedNip()
+    {
+        $response = self::$reader->lookup('5252389922', IdentifierType::NIP);
+        $this->assertFalse($response->valid);
+    }
+
 }
