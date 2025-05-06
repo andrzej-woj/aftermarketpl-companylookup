@@ -18,26 +18,12 @@ class CeidgReader implements Reader
     use Traits\ResolvesVatid;
     use Traits\ValidatesVatid;
 
-    /**
-     * Soap api endpoint
-     */
-    private $ws_url = 'https://datastore.ceidg.gov.pl/CEIDG.DataStore/services/DataStoreProvider201901.svc?wsdl';
-    private $apikey = '';
-    private $api = null;
+    private $url = 'https://dane.biznes.gov.pl/api/ceidg/v2';
+    private $apiKey = '';
 
-    private $options = [];
-
-    /**
-     * 
-     */
     public function __construct(string $apikey = '')
     {
-        $this->apikey = $apikey;
-        try {
-            $this->api = new SoapClient($this->ws_url);
-        } catch(\Throwable $e) {
-            throw new CeidgReaderException('Checking status currently not available');
-        }        
+        $this->apiKey = $apikey;
     }
 
     /**
@@ -89,18 +75,21 @@ class CeidgReader implements Reader
 
         $apiCallParameters = [];
         if (!empty($parameters['name'])) {
-            $apiCallParameters['Name'] = [$parameters['name']];
+            $apiCallParameters['nazwa'] = $parameters['name'];
         }
 
-        $xml = $this->callApi($apiCallParameters);
-        if(!$xml) {
-            $companyData = new CompanyData;
+        $json = $this->callApi('/firmy', $apiCallParameters);
+        if(!$json) {
+            $companyData = new CompanyData();
             $companyData->valid = false;
             return [$companyData];
         }
 
+        $ids = array_map(function($entry) { return $entry['id']; }, $json['firmy']);
+        $companiesData = $this->callApi('/firma/', ['ids' => $ids]);
+
         $companies = [];
-        foreach($xml->InformacjaOWpisie as $wpis) {
+        foreach($companiesData['firma'] as $wpis) {
             $companies[] = $this->parseCompanyData($wpis);
         }
 
@@ -111,19 +100,19 @@ class CeidgReader implements Reader
     {
         Validators\PL::checkNip($nip);
 
-        $xml = $this->callApi([
-            'NIP' => [$nip]
+        $json = $this->callApi('/firma', [
+            'nip' => $nip,
         ]);
 
-        if(!$xml) {
+        if(!$json) {
             return $this->createInvalidCompany(new CompanyIdentifier(IdentifierType::NIP, $nip));
         }
 
         // Find active company
         $resolvedCompany = false;
         $wpis = false;
-        foreach($xml->InformacjaOWpisie as $wpis) {
-            if($wpis->DaneDodatkowe->Status == 'Aktywny') {
+        foreach($json['firma'] as $wpis) {
+            if($wpis['status'] == 'AKTYWNY') {
                 $resolvedCompany = $wpis;
             }
         }
@@ -140,19 +129,19 @@ class CeidgReader implements Reader
 
     private function lookupREGON(string $regon): Companydata
     {
-        $xml = $this->callApi([
-            'REGON' => [$regon],
+        $json = $this->callApi('/firma', [
+            'regon' => $regon,
         ]);
 
-        if(!$xml) {
+        if(!$json) {
             return $this->createInvalidCompany(new CompanyIdentifier(IdentifierType::REGON, $regon));
         }
 
         // Find active company
         $resolvedCompany = false;
         $wpis = false;
-        foreach($xml->InformacjaOWpisie as $wpis) {
-            if($wpis->DaneDodatkowe->Status == 'Aktywny') {
+        foreach($json['firma'] as $wpis) {
+            if($wpis['status'] == 'AKTYWNY') {
                 $resolvedCompany = $wpis;
             }
         }
@@ -174,16 +163,19 @@ class CeidgReader implements Reader
     {
         Validators\PL::checkNip($nip);
 
-        $xml = $this->callApi([
-            'NIP_SC' => [$nip]
+        $json = $this->callApi('/firmy', [
+            'nip_sc' => $nip,
         ]);
 
-        if(!$xml) {
+        if(!$json) {
             return [$this->createInvalidCompany(new CompanyIdentifier(IdentifierType::NIP, $nip))];
         }
 
+        $ids = array_map(function($entry) { return $entry['id']; }, $json['firmy']);
+        $companiesData = $this->callApi('/firma/', ['ids' => $ids]);
+
         $companies = [];
-        foreach($xml->InformacjaOWpisie as $wpis) {
+        foreach($companiesData['firma'] as $wpis) {
             $companies[] = $this->parseCompanyData($wpis);
         }
 
@@ -195,43 +187,55 @@ class CeidgReader implements Reader
      */
     private function lookupPartnershipREGON(string $regon): array
     {
-        $xml = $this->callApi([
-            'REGON_SC' => [$regon]
+        $json = $this->callApi('/firmy', [
+            'regon_sc' => $regon,
         ]);
 
-        if(!$xml) {
+        if(!$json) {
             return [$this->createInvalidCompany(new CompanyIdentifier(IdentifierType::REGON, $regon))];
         }
 
+        $ids = array_map(function($entry) { return $entry['id']; }, $json['firmy']);
+        $companiesData = $this->callApi('/firma/', ['ids' => $ids]);
+
         $companies = [];
-        foreach($xml->InformacjaOWpisie as $wpis) {
+        foreach($companiesData['firma'] as $wpis) {
             $companies[] = $this->parseCompanyData($wpis);
         }
 
         return $companies;
     }
 
-    private function callApi(array $parameters): ?\SimpleXMLElement
+    private function callApi(string $path, array $parameters): array
     {
-        $parameters = array_merge(['AuthToken' => $this->apikey], $parameters);
+        $url = sprintf("%s%s?%s", $this->url, $path, http_build_query($parameters));
 
-        try {
-            $response = $this->api->GetMigrationData201901($parameters);
-        } catch(\Throwable $e) {
-            throw new CeidgReaderException('Checking status currently not available', 0, $e);
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $this->apiKey]);
+        $response = curl_exec($curl);
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+
+        if (curl_error($curl)) {
+            throw new CeidgReaderException(curl_error($curl), curl_errno($curl));
         }
 
-        if(preg_match("/Brak tokenu/i", $response->GetMigrationData201901Result)) {
-            throw new CeidgReaderException("Incorrect API KEY CEIDG");
+        if (in_array($httpCode, [400, 204])) {
+            return [];
         }
 
-        if(!isset($response->GetMigrationData201901Result)) {
-            throw new CeidgReaderException(("CEIDG API unavailable: [" . @substr($response, 0,100) . "...]"));
+        if ($httpCode !== 200) {
+            throw new CeidgReaderException("Invalid http response code", $httpCode);
         }
 
-        $parsedResponse = @simplexml_load_string($response->GetMigrationData201901Result);
+        $responseData = @json_decode($response, true);
 
-        return $parsedResponse ?: null;
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new CeidgReaderException("Invalid json response", $httpCode);
+        }
+
+        return $responseData;
     }
 
     private function createInvalidCompany(CompanyIdentifier $identifier): CompanyData
@@ -243,65 +247,64 @@ class CeidgReader implements Reader
         return $companyData;
     }
 
-    private function parseCompanyData(\SimpleXMLElement $xml): CompanyData
+    private function parseCompanyData(array $json): CompanyData
     {
-        $validStatuses = [
-            'Aktywny',
-            'Działalność jest prowadzona wyłącznie w formie spółki/spółek cywilnych',
-        ];
-
         $companyData = new CompanyData;
 
-        $companyData->mainAddress =  $this->parseAddress($xml->DaneAdresowe->AdresGlownegoMiejscaWykonywaniaDzialalnosci);
-        $companyData->additionalAddresses[] = $this->parseAddress($xml->DaneAdresowe->AdresDoDoreczen);
-
-        if(in_array((string) $xml->DaneDodatkowe->Status, $validStatuses)) {
-            $companyData->valid = true;
-        } else {
-            $companyData->valid = false;
+        if(!empty($json['adresDzialalnosci']))
+            $companyData->mainAddress =  $this->parseAddress($json['adresDzialalnosci']);
+        if(!empty($json['adresKorespondencyjny']))
+            $companyData->additionalAddresses[] = $this->parseAddress($json['adresKorespondencyjny']);
+        if(!empty($json['adresyDzialalnosciDodatkowe'])) {
+            foreach($json['adresyDzialalnosciDodatkowe'] as $jsonAddress) {
+                $companyData->additionalAddresses[] = $this->parseAddress($jsonAddress);
+            }
         }
 
-        $companyData->name = (string) $xml->DanePodstawowe->Firma;
+        $validStatuses = [
+            'AKTYWNY',
+            'WYLACZNIE_W_FORMIE_SPOLKI',
+        ];
+        $companyData->valid = in_array($json['status'], $validStatuses);
+        $companyData->name = $json['nazwa'];
 
         $companyData->identifiers = [];
-        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::NIP, (string) $xml->DanePodstawowe->NIP);
-        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, (string) $xml->DanePodstawowe->REGON);
-        $companyData->startDate = (string)$xml->DaneDodatkowe->DataRozpoczeciaWykonywaniaDzialalnosciGospodarczej;
-        $companyData->pkdCodes = mb_split(",", (string) $xml->DaneDodatkowe->KodyPKD);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::NIP, $json['wlasciciel']['nip']);
+        $companyData->identifiers[] = new CompanyIdentifier(IdentifierType::REGON, $json['wlasciciel']['regon']);
+        $companyData->startDate = $json['dataRozpoczecia'];
+        $companyData->pkdCodes = $json['pkd'] ?? [];
 
-        if((string)$xml->DaneKontaktowe->Telefon)
-            $companyData->phoneNumbers = [(string)$xml->DaneKontaktowe->Telefon];
+        if(!empty($json['telefon']))
+            $companyData->phoneNumbers = [$json['telefon']];
 
-        if((string)$xml->DaneKontaktowe->Faks)
-            $companyData->faxNumbers = [(string)$xml->DaneKontaktowe->Faks];
+        if(!empty($json['email']))
+            $companyData->emailAddresses = [$json['email']];
 
-        if((string)$xml->DaneKontaktowe->AdresPocztyElektronicznej)
-            $companyData->emailAddresses = [(string)$xml->DaneKontaktowe->AdresPocztyElektronicznej];
-
-        if((string)$xml->DaneKontaktowe->AdresStronyInternetowej)
-            $companyData->websiteAddresses = [(string)$xml->DaneKontaktowe->AdresStronyInternetowej];
+        if(!empty($json['www']))
+            $companyData->websiteAddresses = [$json['www']];
 
         $companyData->representatives[] = new CompanyRepresentative(
-            (string) $xml->DanePodstawowe->Imie,
+            $json['wlasciciel']['imie'],
             null,
-            (string) $xml->DanePodstawowe->Nazwisko
+            $json['wlasciciel']['nazwisko']
         );
 
         return $companyData;
     }
 
-    private function parseAddress($address) : CompanyAddress 
+    private function parseAddress(array $address): CompanyAddress
     {
-        $companyAddress = new CompanyAddress;
+        $companyAddress = new CompanyAddress();
         $companyAddress->country = 'PL';
-        $companyAddress->postalCode = (string) $address->KodPocztowy;
-        $companyAddress->address = (string) $address->Ulica;
-        $companyAddress->city = (string) $address->Miejscowosc;
+        $companyAddress->postalCode = $address['kod'];
+        $companyAddress->city = $address['miasto'];
 
-        if(!empty($address->Lokal))
-            $companyAddress->address = sprintf("%s %s m. %s", $address->Ulica, $address->Budynek, $address->Lokal);
+        if(!empty($address['lokal']))
+            $companyAddress->address = sprintf("%s %s m. %s", $address['ulica'], $address['budynek'], $address['lokal']);
+        else if(!empty($address['ulica']))
+            $companyAddress->address = sprintf("%s %s", $address['ulica'], $address['budynek']);
         else
-            $companyAddress->address = sprintf("%s %s", $address->Ulica, $address->Budynek);
+            $companyAddress->address = sprintf("%s %s", $address['miasto'], $address['budynek']);
 
         return $companyAddress;
     }
