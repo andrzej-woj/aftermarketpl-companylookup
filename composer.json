@@ -5,7 +5,6 @@
     "require": {
         "php": ">=7.1",
         "ext-curl": "*",
-        "ext-simplexml": "*",
         "ext-soap": "*",
         "ext-libxml": "*"
     },
