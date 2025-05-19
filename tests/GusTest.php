@@ -6,7 +6,7 @@ use Aftermarketpl\CompanyLookup\Models\CompanyIdentifier;
 use PHPUnit\Framework\TestCase;
 use Aftermarketpl\CompanyLookup\Env;
 
-abstract class GusTest extends TestCase
+final class GusTest extends TestCase
 {
     public static $reader = null;
     

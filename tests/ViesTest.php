@@ -21,32 +21,68 @@ final class ViesTest extends TestCase
 
     public function testCorrectNip()
     {
-        $response = self::$reader->lookup('PL9121875009');
-        $this->assertTrue($response->valid);
+        try {
+
+            $response = self::$reader->lookup('PL9121875009');
+            $this->assertTrue($response->valid);
+
+        } catch (ViesReaderException $e) {
+            if ($e->getMessage() == "Checking status currently not available [MS_MAX_CONCURRENT_REQ]" || $e->getMessage() == "Checking status currently not available [TIMEOUT]")
+                $this->addWarning($e->getMessage());
+            else
+                throw $e;
+        }
     }
 
     public function testIncorrectNip()
     {
-        $response = self::$reader->lookup('PL5252389922');
-        $this->assertFalse($response->valid);
+        try {
+
+            $response = self::$reader->lookup('PL5252389922');
+            $this->assertFalse($response->valid);
+
+        } catch (ViesReaderException $e) {
+            if ($e->getMessage() == "Checking status currently not available [MS_MAX_CONCURRENT_REQ]" || $e->getMessage() == "Checking status currently not available [TIMEOUT]")
+                $this->addWarning($e->getMessage());
+            else
+                throw $e;
+        }
     }
 
     public function testInvalidCountry()
     {
-        $this->expectException(ValidatorException::class);
-        self::$reader->lookup('XX6783041098');
+        try {
+
+            $this->expectException(ValidatorException::class);
+            self::$reader->lookup('XX6783041098');
+
+        } catch (ViesReaderException $e) {
+            if ($e->getMessage() == "Checking status currently not available [MS_MAX_CONCURRENT_REQ]" || $e->getMessage() == "Checking status currently not available [TIMEOUT]")
+                $this->addWarning($e->getMessage());
+            else
+                throw $e;
+        }
     }
 
     public function testVATIdentifierIsWithoutCountryCode()
     {
-        $response = self::$reader->lookup('PL9121875009');
-        $vatIdentifier = array_filter(
-            $response->identifiers,
-            function (CompanyIdentifier $identifier) {
-                return $identifier->type == IdentifierType::VAT;
-            }
-        );
-        $this->assertEquals("PL9121875009", reset($vatIdentifier)->id);
+        try {
+
+            $response = self::$reader->lookup('PL9121875009');
+            $vatIdentifier = array_filter(
+                $response->identifiers,
+                function (CompanyIdentifier $identifier) {
+                    return $identifier->type == IdentifierType::VAT;
+                }
+            );
+            $this->assertEquals("PL9121875009", reset($vatIdentifier)->id);
+
+        } catch (ViesReaderException $e) {
+            if ($e->getMessage() == "Checking status currently not available [MS_MAX_CONCURRENT_REQ]" || $e->getMessage() == "Checking status currently not available [TIMEOUT]")
+                $this->addWarning($e->getMessage());
+            else
+                throw $e;
+        }
     }
 
     public function testValidG1()
