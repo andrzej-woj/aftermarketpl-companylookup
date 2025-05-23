@@ -5,7 +5,9 @@
     "require": {
         "php": ">=7.1",
         "ext-curl": "*",
-        "ext-simplexml": "*"
+        "ext-simplexml": "*",
+        "ext-soap": "*",
+        "ext-libxml": "*"
     },
     "license": "Apache-2.0",
     "authors": [
